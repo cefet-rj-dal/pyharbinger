@@ -10,6 +10,7 @@ scikit-learn / scipy / ruptures with thin adapters.
 from __future__ import annotations
 
 from . import datasets, utils
+from .anomaly import HanrFbiad, HanrFft, HanrHistogram, HanrMl
 from .evaluation import HarEval, HarEvalSoft
 from .harbinger import Harbinger
 from .utils import (
@@ -30,6 +31,10 @@ from .utils import (
 __version__ = "0.1.0"
 
 __all__ = [
+    "HanrFbiad",
+    "HanrFft",
+    "HanrHistogram",
+    "HanrMl",
     "HarEval",
     "HarEvalSoft",
     "Harbinger",

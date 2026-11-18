@@ -129,3 +129,14 @@ from pytspredit import TsData, ts_projection, TsReg, ...    # janelas e regresso
   chaves de métrica em `TP/FP/FN/TN` para hard e soft (no R o soft usa `TPs/FPs/...`);
   valores idênticos. Confusão = DataFrame 2x2 (detection×event). `idx` 0-based.
   `fuzzify` (só p/ ensemble fuzzy) não portado — fora do escopo v1.
+- **2026-11-18 — M2 DONE** (branch `milestone-2-anomalies`, sai da M1). `anomaly.py`:
+  `HanrMl` (ponte: embrulha regressor do pytspredit, prevê 1-passo sobre janelas,
+  marca resíduos grandes), `HanrFft` (filtro passa-alta via FFT), `HanrHistogram`
+  (densidade de bins; `r_pretty` reproduz o `pretty()`/`hist()` do R), `HanrFbiad`
+  (inercial forward+backward). **Paridade R:** FFT, Histogram, FBIAD e HanrMl(kNN,
+  determinístico) batem **EXATAMENTE** com o R (eventos + resíduos ≤1e-4) sobre
+  `examples_anomalies$simple` (anomalia em idx 50 1-based). **Tolerância documentada:**
+  HanrMl com ELM `nhid<input_size` + `purelin` é linear de posto reduzido → depende do
+  RNG dos pesos ocultos → difere R vs Python (igual ao pytspredit; use `nhid>=input_size`
+  ou regressor determinístico p/ paridade exata). 30 testes verdes, ruff limpo, 3
+  notebooks. **Nenhum bug encontrado no `harbinger` R.**
