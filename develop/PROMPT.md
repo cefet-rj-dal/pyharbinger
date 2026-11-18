@@ -1,8 +1,10 @@
 # Kickoff prompt — portar `harbinger` (R) para Python (`pyharbinger`)
 
 > Cole/aponte este arquivo no início de uma nova sessão. Ele te dá tudo para retomar
-> o port no mesmo padrão com que já fizemos o **pydaltoolbox** (publicado no PyPI).
-> **Pré-requisito:** o `pytspredit` precisa estar portado antes (o harbinger depende dele).
+> o port no mesmo padrão com que já fizemos o **pydaltoolbox** e o **pytspredit**
+> (ambos publicados no PyPI).
+> **Pré-requisito ATENDIDO:** `pytspredit 0.1.0` já está no PyPI (`pip install pytspredit`)
+> e `pydaltoolbox 0.1.0` também. **Leia a §9 (lições da sessão pytspredit) antes de começar.**
 
 ---
 
@@ -128,7 +130,75 @@ Implementar + testes → notebook do tema → `build_examples` → `ruff`+`pytes
 commit no branch + push → **Eduardo revisa no GitHub** → ff-merge na main.
 
 ## 8. Primeiro passo concreto
-Confirme que `pytspredit` já está pronto/instalável (`pip install pytspredit` ou editable).
-Leia `pydaltoolbox` (padrão), `harbinger/R/harbinger.R`, `har_eval.R`, `hanr_ml.R`,
-`hcp_pelt.R`, `harbinger_utils*.R`. Proponha o planejamento ao Eduardo e comece pela
-Fase 0→2 (núcleo + avaliação), depois o slice `HanrMl`.
+Leia a **§9** (lições da sessão pytspredit). Confirme `pytspredit`/`pydaltoolbox`
+instalados (`python -c "import pytspredit, pydaltoolbox"`). Leia `pydaltoolbox` (padrão),
+`harbinger/R/harbinger.R`, `har_eval.R`, `hanr_ml.R`, `hcp_pelt.R`, `harbinger_utils*.R`.
+**Proponha o planejamento ao Eduardo (em milestones, não 10 fases) e confirme com ele
+o escopo da v1 e a cadência de revisão ANTES de codar.** Depois comece pela Fase 0→2.
+
+---
+
+## 9. Lições da sessão pytspredit (aplicar aqui) — 2026-11-18
+
+O port do `pytspredit` foi feito e **publicado (0.1.0) no PyPI num único dia**. O que o
+Eduardo pediu e o que descobrimos — replique:
+
+### Workflow que o Eduardo fixou (preferências dele)
+- **Planeje em MILESTONES, não em 10 fases com 10 pausas.** No começo, proponha 3–4
+  milestones consolidadas com meta de release, e **pergunte a ele** (use AskUserQuestion):
+  (a) **escopo da v1** (trilha enxuta vs completa — o que adia para 0.2.0/Bloco B) e
+  (b) **cadência de revisão** (pausar a cada milestone vs uma revisão final antes do upload).
+  No pytspredit ele escolheu **trilha enxuta + pausar a cada milestone**.
+- **Branch por milestone**, cada um baseado no anterior (ex.: `milestone-2-...` sai do
+  `milestone-1-...`), para o PR mostrar só o diff daquela milestone. Merge final: ff na `main`.
+- **Exemplos SEMPRE commitados** e, ao pausar, **mande os links do GitHub de cada exemplo**
+  (`https://github.com/cefet-rj-dal/pyharbinger/blob/<branch>/examples/...`). Ele revisa por ali.
+  `gh` não está instalado → o PR ele abre pelo link de compare; você só empurra os branches.
+- **Documento vivo** `develop/planejamento.md` atualizado a cada milestone (decisões, status).
+- **Convenção de exemplos:** um exemplo por classe, mas **agrupados por família num
+  notebook** (ex.: `anomaly/01-detectors.md` com uma seção por detector), não 1 arquivo por classe.
+
+### Comparação R vs Python a CADA passo (exigência dele — dá segurança)
+- **R 4.5.0 está disponível** em `/c/R/R-4.5.0` (`Rscript`). Para cada componente portado,
+  rode o equivalente no `harbinger` (R) e no `pyharbinger` sobre o **mesmo dado** e
+  **compare** (p/ detecção: `idx/event/type` e métricas TP/FP/FN/precision/recall/F1).
+- Padrão que funcionou: um `*_ref.R` gera CSVs de referência; um `*_cmp.py` recomputa e
+  compara com tolerância. Determinísticos devem bater ~1e-9; onde o backend/RNG difere
+  (RF, MLP, k-means init, MLE do ARIMA/GARCH), **documente a tolerância** no planejamento.
+- **Extraia datasets do R fielmente:** `Rscript` para ler o `.RData` → salve CSV em
+  `src/pyharbinger/data/` e **verifique numericamente** (foi assim com o `tsd`).
+- Para testar um **branch de patch no pacote R** sem reinstalar: `pkgload::load_all(".")`.
+
+### Armadilhas técnicas concretas (vão reaparecer)
+- **Teste de install em venv limpo é OBRIGATÓRIO antes de publicar.** Ele pegou um bug real:
+  `df.to_numpy()` vem **read-only** no numpy novo (2.5) → escrita in-place quebra. Use
+  `np.array(df.to_numpy())` quando for escrever. O dev env tinha numpy antigo e mascarou.
+- **O ruff deste ambiente tem ruleset LARGO** (B/BLE/S/RUF/UP ativos, não só E/F). Mantenha
+  limpo: `ClassVar` em dict de classe mutável; nada de `except Exception:` sem `# noqa: BLE001`;
+  sem variável/desempacote não usado; sem aspas redundantes em anotação (há `from __future__`).
+- **Paridade estatística exata com o R precisa do backend certo:** `statsmodels.acf(adjusted=False)`
+  = `stats::acf` do R; `statsmodels.pacf(method="ywm")` = `stats::pacf`; **`np.quantile(method="median_unbiased")`
+  = `quantile(type=8)` do R** (discretização/MI). Para k-means (`hanct_kmeans`), a init/RNG difere
+  do `stats::kmeans` → tolerância.
+- **Fidelidade a defaults do R:** replique defaults do backend (no pytspredit, os `TsNorm*`
+  aplicam `OutliersBoxplot()` por padrão sobre os dados transformados; o SVM replica o
+  `scale=TRUE` do e1071). Confira caso a caso.
+- **Cheque herança/MV:** no tspredit, `ts_arimax` era **multivariado** (`ts_reg_mv`) → foi para
+  o Bloco B com a família MV. No harbinger, veja quais detectores puxam dep adiada
+  (EMD/wavelet/GARCH/DTW/SAX) e adie junto.
+- **Bugs latentes no R:** achamos e corrigimos um (`ts_norm_none` ignorava o alvo no x-path;
+  quebrava `ts_regsw`). Se achar algo parecido no `harbinger`, **conserte num branch do
+  pacote R** (`c:\Git\dal\harbinger`), verifique com `load_all`, **não bumpe a versão do
+  DESCRIPTION**, deixe na branch para o Eduardo revisar/mergear (release CRAN é dele). O fix do
+  tspredit está no branch `fix-ts-norm-none-target-path`.
+
+### Deploy (confirmado nesta sessão)
+- `python -m build` + `twine check` + **install em venv limpo** → só então `twine upload`.
+- O token **`daldeploy`** (conta inteira) está em `C:\Users\eduar\.pypirc` [pypi] e serve para
+  todos os pacotes DAL. **O Eduardo autoriza explicitamente** o upload (publicar é irreversível;
+  versões imutáveis; beta até 1.0.0). sdist exclui `develop/notebooks/examples/tests/tools`.
+- Depois de publicar: ff-merge dos branches na `main`, badge de PyPI + status "published" no README.
+
+### Memória
+- Leia também `C:\Users\eduar\.claude\projects\c--Git-dal-pytspredit\memory\` (notas do port de TS
+  e o memo `workflow-r-vs-python-check`), além do memo do pydaltoolbox citado na §1.
