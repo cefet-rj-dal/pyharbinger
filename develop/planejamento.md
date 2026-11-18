@@ -140,3 +140,26 @@ from pytspredit import TsData, ts_projection, TsReg, ...    # janelas e regresso
   RNG dos pesos ocultos → difere R vs Python (igual ao pytspredit; use `nhid>=input_size`
   ou regressor determinístico p/ paridade exata). 30 testes verdes, ruff limpo, 3
   notebooks. **Nenhum bug encontrado no `harbinger` R.**
+- **2026-11-18 — M3 DONE + closeout** (branch `milestone-3-changepoints-closeout`,
+  sai da M2). `changepoint.py`: `HcpAmoc`/`HcpBinseg`/`HcpPelt` (ruptures, custo
+  "normal"), `HcpKswin` (online, KS com subamostra RNG), `HcpPageHinkley` (online,
+  determinístico). `clustering.py`: `HanctKmeans` (sklearn; anomalia seq=1 / discord
+  seq>1). **Paridade R:** `HcpPageHinkley` **EXATO** (29/36/110/vazio nas 4 séries);
+  `HanctKmeans` bate (event=50, centers=3); AMOC/BinSeg batem em 3/4 e ~off-by-1
+  (aproximado, esperado). **Tolerâncias:** PELT usa penalidade `3·log(n)` (MBIC não
+  reproduzível no ruptures); KSWIN e KMeans dependem de RNG (`random_state`). **Escopo:
+  `HancMl` ADIADO para 0.2.0** — exige caminho multivariado (DataFrame) + manejo de
+  rótulos/probabilidades do classificador pydaltoolbox; destoa dos detectores
+  univariados. Closeout: README v1 (27 símbolos públicos), `develop/deploy.md`,
+  build + `twine check` PASSOU, sdist exclui dev + embarca CSVs, **install em venv
+  limpo PASSOU** (numpy/pandas/ruptures 1.0.6/pydaltoolbox/pytspredit do PyPI; smoke
+  end-to-end dos 8 detectores OK). 43 testes verdes, ruff limpo, 5 notebooks.
+  **Nota py3.14:** `ruptures` 1.1.x não tem wheel cp314 (sdist precisa compilador) →
+  usar `pip install --prefer-binary` (pega a 1.0.6 pura); py3.9–3.13 instalam direto.
+
+## Pronto para publicar
+
+`pyharbinger 0.1.0` está validado e pronto para upload ao PyPI. **Aguardando
+autorização explícita do Eduardo** para rodar o `twine upload` (publicar é
+irreversível; versões imutáveis). Após publicar: ff-merge dos branches na main +
+badge/status no README.
