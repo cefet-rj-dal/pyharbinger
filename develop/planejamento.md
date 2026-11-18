@@ -118,3 +118,14 @@ from pytspredit import TsData, ts_projection, TsReg, ...    # janelas e regresso
   construído. **Nota de ambiente:** Python 3.14 → `ruptures` só tem wheel pura em
   1.0.6 (as 1.1.x exigem compilação C); pin relaxado para `ruptures>=1.0`.
   Datasets de motif/harbinger não embarcados na v1 (fora do escopo enxuto).
+- **2026-11-18 — M1 DONE** (branch `milestone-1-core-eval`, sai da M0). `utils.py`
+  (desvios L1/L2/Huber; filtros none/boxplot/gaussian/mad/grubbs/ratio → `FilterResult`;
+  seleção firstgroup/highgroup/referencedistribution → `SelectionResult`), `harbinger.py`
+  (`Harbinger(DalBase)` + `fit`/`detect`/`evaluate` + `_store_refs`/`_restore_refs`,
+  hooks default = L2/gaussian/firstgroup), `evaluation.py` (`HarEval` + `HarEvalSoft`
+  com Hungarian via `scipy.optimize.linear_sum_assignment`). **Paridade R EXATA**
+  (devios, filtros c/ índices+thresholds, seleção, hard eval, soft eval — todos ≤1e-5;
+  determinísticos). 23 testes verdes, ruff limpo, 2 notebooks. **Nota:** unifiquei as
+  chaves de métrica em `TP/FP/FN/TN` para hard e soft (no R o soft usa `TPs/FPs/...`);
+  valores idênticos. Confusão = DataFrame 2x2 (detection×event). `idx` 0-based.
+  `fuzzify` (só p/ ensemble fuzzy) não portado — fora do escopo v1.

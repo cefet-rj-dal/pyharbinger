@@ -9,10 +9,42 @@ scikit-learn / scipy / ruptures with thin adapters.
 """
 from __future__ import annotations
 
-from . import datasets
+from . import datasets, utils
+from .evaluation import HarEval, HarEvalSoft
+from .harbinger import Harbinger
+from .utils import (
+    har_candidate_selection_firstgroup,
+    har_candidate_selection_highgroup,
+    har_candidate_selection_referencedistribution,
+    har_deviation_huber,
+    har_deviation_l1,
+    har_deviation_l2,
+    har_filter_boxplot,
+    har_filter_gaussian,
+    har_filter_grubbs,
+    har_filter_mad,
+    har_filter_none,
+    har_filter_ratio,
+)
 
 __version__ = "0.1.0"
 
 __all__ = [
+    "HarEval",
+    "HarEvalSoft",
+    "Harbinger",
     "datasets",
+    "har_candidate_selection_firstgroup",
+    "har_candidate_selection_highgroup",
+    "har_candidate_selection_referencedistribution",
+    "har_deviation_huber",
+    "har_deviation_l1",
+    "har_deviation_l2",
+    "har_filter_boxplot",
+    "har_filter_gaussian",
+    "har_filter_grubbs",
+    "har_filter_mad",
+    "har_filter_none",
+    "har_filter_ratio",
+    "utils",
 ]
