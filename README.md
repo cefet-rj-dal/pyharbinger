@@ -1,5 +1,9 @@
 # pyharbinger
 
+[![PyPI](https://img.shields.io/pypi/v/pyharbinger.svg)](https://pypi.org/project/pyharbinger/)
+[![Python versions](https://img.shields.io/pypi/pyversions/pyharbinger.svg)](https://pypi.org/project/pyharbinger/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+
 Python port of the R [harbinger](https://github.com/cefet-rj-dal/harbinger) — a **framework
 for time series event detection** (anomalies, change points, and motifs/discords), built on
 the DAL Toolbox *Experiment Line*.
@@ -20,6 +24,10 @@ It is the capstone of the DAL Python family:
 ```bash
 pip install pyharbinger
 ```
+
+> On **Python 3.14**, `ruptures` 1.1.x has no prebuilt wheel yet; install with
+> `pip install --prefer-binary pyharbinger` so pip uses the pure-Python
+> `ruptures` 1.0.6 wheel. Python 3.9–3.13 install directly.
 
 ## Quickstart
 
