@@ -48,7 +48,7 @@ print(metrics["confMatrix"])
 print("F1:", metrics["F1"])
 ```
 
-## What's included (v1)
+## What's included
 
 Every detector extends `Harbinger` and returns a detection table with columns
 `idx` / `event` / `type` (`"anomaly"`, `"changepoint"`, `"discord"` or `""`).
@@ -60,13 +60,23 @@ Every detector extends `Harbinger` and returns a detection table with columns
 | **Anomaly** | `HanrMl` (forecasting residuals, wraps a pytspredit regressor), `HanrFft`, `HanrHistogram`, `HanrFbiad` |
 | **Change point** | `HcpAmoc`, `HcpBinseg`, `HcpPelt` (via `ruptures`), `HcpKswin`, `HcpPageHinkley` |
 | **Clustering** | `HanctKmeans` (anomalies / discords) |
+| **Classification** | `HancMl` (supervised; wraps a pydaltoolbox classifier) |
+| **Multivariate** | `HmuPca` (PCA reconstruction error) |
 | **Datasets** | `datasets.examples_anomalies()`, `datasets.examples_changepoints()` |
 
-### Deferred to a future release (0.2.0 / Block B)
+Detectors accept a univariate series or, for the multivariate ones, a
+`DataFrame` with one column per variable.
 
-ML-classification detector (`hanc_ml`), motif/discord via matrix profile
-(`hdis_mp`/`hmo_mp`), ARIMA/GARCH/EMD/wavelet anomaly detectors, DTW clustering,
-SAX representations, ensembles, streaming/online runners, and plotting helpers.
+### Roadmap
+
+Later releases expand coverage toward feature parity with R in two cycles. The
+**low-dependency** cycle adds the FFT-hybrid anomaly detectors, the extended
+change-point family (ChangeFinder, Chow, GFT, join-point, BOCPD, ...), native
+SAX motif/discord, ensembles, plotting, and the streaming runners. The
+**heavy-dependency** cycle then adds — each behind an optional extra — matrix
+profile (`stumpy`), GARCH (`arch`), EMD (`EMD-signal`), wavelets (`PyWavelets`),
+DTW clustering, and the autoencoder detectors (deep-learning backend). See
+`develop/planejamento.md` for the full plan.
 
 ## Faithfulness to R
 
@@ -82,6 +92,12 @@ documented:
 - `HanctKmeans` and `HcpKswin` depend on initialization / random-subsample RNG.
 - `HcpAmoc`/`HcpBinseg`/`HcpPelt` use `ruptures` (Gaussian cost); R uses
   `changepoint::cpt.meanvar` with the MBIC penalty, so agreement is approximate.
+- `HancMl` detections match R (e.g. the `hanc_ml` k-NN example flags the same
+  positions), but class *probabilities* can differ because scikit-learn and R's
+  `class::knn` break ties differently.
+- `HmuPca` with its faithful default (all components) reproduces R's degenerate
+  residual (~1e-31 round-off); use the `n_components` extension for genuine
+  multivariate detection.
 
 ## Related DAL projects
 

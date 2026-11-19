@@ -190,7 +190,7 @@ Legenda da coluna **Dep**: ✅ = sem dep nova (reusa o que já temos); 🆕 = de
 | `hanr_fft_sma` | `HanrFftSma` | FFT + média móvel (`mas`) | ✅ |
 | `hanr_fft_amoc_cusum` | `HanrFftAmocCusum` | FFT + AMOC + CUSUM | ✅ |
 | `hanr_fft_binseg_cusum` | `HanrFftBinsegCusum` | FFT + BinSeg + CUSUM | ✅ |
-| `han_autoencoder` | `HanAutoencoder` | `pydaltoolbox.AutoencBaseEd` (torch já transitivo) | ✅ |
+| `han_autoencoder` | `HanAutoencoder` | autoencoder real (torch) — **o `AutoencBaseEd` do pydaltoolbox é STUB identidade** | 🆕 `[deep]` |
 | `hanr_garch` | `HanrGarch` | `arch` (sGARCH+ARMA) | 🆕 `[garch]` |
 | `hanr_emd` | `HanrEmd` | `EMD-signal` (CEEMD) | 🆕 `[emd]` |
 | `hanr_remd` | `HanrRemd` | `EMD-signal` + statsmodels ARIMA | 🆕 `[emd]` |
@@ -209,7 +209,7 @@ Legenda da coluna **Dep**: ✅ = sem dep nova (reusa o que já temos); 🆕 = de
 | `hcp_joinpoint` | `HcpJoinpoint` | joinpoint (lm/cor) | 🔨 nativo |
 | `hcp_scp` | `HcpScp` | OLS segmentado (`lm`) | 🔨 nativo |
 | `hcp_bocpd` | `HcpBocpd` | BOCPD Adams&MacKay (R usa `ocp`, só *Suggests*) | 🔨 nativo |
-| `hcp_waypoint` | `HcpWaypoint` | `pydaltoolbox.AutoencBaseEd` | ✅ |
+| `hcp_waypoint` | `HcpWaypoint` | autoencoder real (torch) — mesmo stub do pydaltoolbox | 🆕 `[deep]` |
 | `hcp_garch` | `HcpGarch` | `arch` + OLS 1º estágio | 🆕 `[garch]` |
 
 ### Clustering / classificação / multivariado
@@ -239,8 +239,8 @@ Legenda da coluna **Dep**: ✅ = sem dep nova (reusa o que já temos); 🆕 = de
 | `mas` | `mas` (util) | média móvel | ✅ |
 | `har_ensemble` | `HarEnsemble` | combinação de detectores | ✅ |
 | `har_ensemble_fuzzy` | `HarEnsembleFuzzy` (+`fuzzify`) | ensemble fuzzy | ✅ |
-| `har_plot` | `har_plot` | `matplotlib` | 🆕 `[plot]` |
-| `har_plot_ensemble` | `har_plot_ensemble` | `matplotlib` | 🆕 `[plot]` |
+| `har_plot` | `har_plot` | `matplotlib` (núcleo) | ✅ |
+| `har_plot_ensemble` | `har_plot_ensemble` | `matplotlib` (núcleo) | ✅ |
 | `har_online_*` | runners online (memory/sources/executor/session) | puro | ✅ |
 | `har_stream_eval` / `har_stream_experiment` | avaliação em streaming | puro | ✅ |
 | `united` / `united_loadfulldata` | experimento "united" | puro | ✅ |
@@ -275,12 +275,16 @@ Legenda da coluna **Dep**: ✅ = sem dep nova (reusa o que já temos); 🆕 = de
 > **Seu eu do futuro: ao trabalhar na release de datasets/streaming, NÃO trate
 > `loadfulldata` como trivial — replique o mecanismo do pytspredit aqui.**
 
-**Resumo das deps NOVAS (só 5 libs pesadas), todas como *extras* opcionais:**
+**Resumo das deps NOVAS (6 libs pesadas), todas como *extras* opcionais:**
 `arch` (`[garch]`), `EMD-signal` (`[emd]`), `PyWavelets` (`[wavelet]`),
-`stumpy` (`[motif]`), DTW lib (`[dtw]`). **`matplotlib` é leve/ubíqua ⇒ dep
-obrigatória** (plots sempre disponíveis; sem extra `[plot]`). Tudo o mais é ✅
-(reuso) ou 🔨 (nativo). `torch` já entra transitivo via `pydaltoolbox` para
-autoencoder/waypoint — **sem dep direta nova**.
+`stumpy` (`[motif]`), DTW lib (`[dtw]`), **`torch` (`[deep]`)**. **`matplotlib` é
+leve/ubíqua ⇒ dep obrigatória** (plots sempre disponíveis; sem extra `[plot]`).
+Tudo o mais é ✅ (reuso) ou 🔨 (nativo).
+
+> **Correção 2026-11-19:** o `AutoencBaseEd` do pydaltoolbox é um **stub
+> identidade** (não treina; a docstring diz que não puxa deep learning). Logo
+> `HanAutoencoder` e `HcpWaypoint` **precisam de torch de verdade** → viram
+> família de dep pesada `[deep]` no Ciclo 2 (saíram do 0.2.0 e do 0.4.0).
 
 ## Política de dependências (native vs. dependency)
 
@@ -321,13 +325,14 @@ revisão do Eduardo, ff-merge (mesma cadência da v1).
 ### Ciclo 1 — baixa dependência (sem dep pesada nova)
 
 - **0.2.0 — Aprendizado & multivariado.** Infra: caminho **multivariado** em
-  `_store_refs`/`_restore_refs` (entrada DataFrame). Detectores: `HancMl`,
-  `HanAutoencoder`, `HmuPca` (todos via pydaltoolbox; torch já transitivo). Infra
-  amortizada em três detectores.
+  `_store_refs`/`_restore_refs` (entrada DataFrame). Detectores: `HancMl`
+  (classificador pydaltoolbox/sklearn) e `HmuPca` (PCA sklearn). `HanAutoencoder`
+  saiu para o Ciclo 2 (torch; ver correção acima).
 - **0.3.0 — Espectral (anomalia).** `mas` + os 5 híbridos FFT
   (`HanrFftAmoc/Binseg/Sma/AmocCusum/BinsegCusum`).
 - **0.4.0 — Change point estendido.** `HcpCfLr`, `HcpCfArima`, `HcpCfEts`, `HcpChow`,
-  `HcpGft`, `HcpJoinpoint`, `HcpScp`, `HcpBocpd` (nativo Adams&MacKay), `HcpWaypoint`.
+  `HcpGft`, `HcpJoinpoint`, `HcpScp`, `HcpBocpd` (nativo Adams&MacKay). (`HcpWaypoint`
+  saiu para o Ciclo 2 — torch.)
 - **0.5.0 — Simbólico (motif/discord nativo).** SAX/xSAX: `TransSax`, `TransXsax`,
   `HmoSax`, `HmoXsax`, `HdisSax`. Embarca dataset `examples_motifs`.
 - **0.6.0 — Ensembles + visualização.** `HarEnsemble`, `HarEnsembleFuzzy` (+`fuzzify`) +
@@ -348,6 +353,7 @@ Ordem/escopo **a combinar com o Eduardo** (ele refina este ciclo em detalhe):
 - **0.10.0 — EMD.** `HanrEmd`, `HanrRemd`, `HanrRtad` — extra `[emd]` (`EMD-signal`).
 - **0.11.0 — Wavelet.** `HanrWavelet` — extra `[wavelet]` (`PyWavelets`).
 - **0.12.0 — DTW.** `HanctDtw` — extra `[dtw]` (`dtaidistance`/`tslearn`).
+- **0.13.0 — Deep learning.** `HanAutoencoder`, `HcpWaypoint` — extra `[deep]` (`torch`).
 
 ### Fechamento
 
@@ -369,3 +375,24 @@ Ordem/escopo **a combinar com o Eduardo** (ele refina este ciclo em detalhe):
   miniatura-no-pacote + `loadfulldata` que baixa o `.RData` completo de url remota
   (benchmark de detecção: Yahoo A1–A4, gecco, MIT-BIH, NAB, oil_3w, UCR). Corrigir na
   0.7.0 IGUAL ao pytspredit (miniatura embarcada + `[bench]` extra com leitor RData).
+
+## Status do roadmap
+
+- **2026-11-19 — 0.2.0 IMPLEMENTADO** (branch `milestone-4-learning-multivariate`,
+  sai da main). Caminho **multivariado** na base (`_store_refs` aceita DataFrame
+  multicoluna; linha presente só se todas as colunas não-NA, igual a
+  `!is.na(apply(serie,1,max))` do R). `classification.py::HancMl` (embrulha
+  classificador pydaltoolbox/sklearn; proba da classe positiva vs threshold +
+  seleção de candidatos). `multivariate.py::HmuPca` (PCA sklearn; z-score ddof=1).
+  **Paridade R:** `HancMl` com `ClaKnn(k=3)` bate EXATO no exemplo `tt` (eventos
+  10, 21) — probabilidades diferem por backend kNN (tolerância já documentada no
+  HanrMl). **`HmuPca` é DEGENERADO no próprio R** (mantém todas as PCs → resíduo =
+  ruído de float ~1e-31; Python reproduz: max|res| 9.861e-32 vs 9.86e-32 no R; os
+  eventos de ruído NÃO são reproduzíveis entre backends). Porta fiel (default =
+  comportamento R) + **extensão `n_components`** (não existe no R) que o torna um
+  detector real. 51 testes verdes (+8), ruff limpo, 7 notebooks (novos:
+  classification/01, multivariate/01). **Correção de escopo:** `AutoencBaseEd` do
+  pydaltoolbox é stub identidade → `HanAutoencoder`/`HcpWaypoint` precisam de torch
+  → movidos para o Ciclo 2 (`[deep]`, release 0.13.0). **Issue latente no R
+  harbinger a reportar:** `hmu_pca` mantém todas as componentes (detector
+  degenerado); sugerir adicionar seleção de componentes no R também.

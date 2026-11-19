@@ -83,11 +83,25 @@ class Harbinger(DalBase):
     # --- shared helpers (har_store_refs / har_restore_refs) -----------------
 
     def _store_refs(self, serie) -> Harbinger:
-        """Store the NA-omitted series and the positions of non-missing values."""
-        arr = as_series_array(serie)
-        self._n = len(arr)
-        self.non_na = np.where(~np.isnan(arr))[0]
-        self.serie = arr[self.non_na]
+        """Store the NA-omitted series and the positions of non-missing values.
+
+        Univariate inputs are stored as a float ndarray (``self.serie``). A
+        **multivariate** input (a :class:`pandas.DataFrame` with more than one
+        column) is kept as a DataFrame so detectors can address columns by name;
+        a row is "present" only when *all* its columns are non-missing, mirroring
+        R's ``!is.na(apply(serie, 1, max))`` in ``har_store_refs``.
+        """
+        if isinstance(serie, pd.DataFrame) and serie.shape[1] > 1:
+            frame = serie.reset_index(drop=True)
+            present = ~frame.isna().any(axis=1).to_numpy()
+            self._n = len(frame)
+            self.non_na = np.where(present)[0]
+            self.serie = frame.iloc[self.non_na].reset_index(drop=True)
+        else:
+            arr = as_series_array(serie)
+            self._n = len(arr)
+            self.non_na = np.where(~np.isnan(arr))[0]
+            self.serie = arr[self.non_na]
         return self
 
     def _restore_refs(self, anomalies=None, change_points=None, res=None, threshold=None):

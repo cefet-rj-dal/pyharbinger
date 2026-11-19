@@ -12,9 +12,11 @@ from __future__ import annotations
 from . import datasets, utils
 from .anomaly import HanrFbiad, HanrFft, HanrHistogram, HanrMl
 from .changepoint import HcpAmoc, HcpBinseg, HcpKswin, HcpPageHinkley, HcpPelt
+from .classification import HancMl
 from .clustering import HanctKmeans
 from .evaluation import HarEval, HarEvalSoft
 from .harbinger import Harbinger
+from .multivariate import HmuPca
 from .utils import (
     har_candidate_selection_firstgroup,
     har_candidate_selection_highgroup,
@@ -30,9 +32,10 @@ from .utils import (
     har_filter_ratio,
 )
 
-__version__ = "0.1.0"
+__version__ = "0.2.0"
 
 __all__ = [
+    "HancMl",
     "HanctKmeans",
     "HanrFbiad",
     "HanrFft",
@@ -46,6 +49,7 @@ __all__ = [
     "HcpKswin",
     "HcpPageHinkley",
     "HcpPelt",
+    "HmuPca",
     "datasets",
     "har_candidate_selection_firstgroup",
     "har_candidate_selection_highgroup",
