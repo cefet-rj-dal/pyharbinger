@@ -163,3 +163,209 @@ from pytspredit import TsData, ts_projection, TsReg, ...    # janelas e regresso
 autorização explícita do Eduardo** para rodar o `twine upload` (publicar é
 irreversível; versões imutáveis). Após publicar: ff-merge dos branches na main +
 badge/status no README.
+
+> **2026-11-18 — PUBLICADO.** `pyharbinger 0.1.0` no PyPI; branches ff-merge na main;
+> badges no README. Família DAL completa em Python (pydaltoolbox + pytspredit + pyharbinger).
+
+---
+
+# Roadmap 0.2.0 → 1.0.0 (refinado 2026-11-19)
+
+> Refinamento pedido pelo Eduardo: considerar **todas** as classes do R, introduzir
+> os componentes **gradualmente** e decidir caso a caso **dependência pesada vs.
+> implementação nativa**. Esta seção substitui o antigo "Bloco B" genérico.
+
+## Inventário completo do R `harbinger` (o que falta portar)
+
+Mapa R→Python de cada classe ainda não portada, com a dependência que ela exige.
+Legenda da coluna **Dep**: ✅ = sem dep nova (reusa o que já temos); 🆕 = dep nova
+(vira *extra* opcional); 🔨 = implementação nativa (não há lib boa/leve o bastante).
+
+### Anomalia (`hanr_*`, `han_*`)
+
+| R | Python (proposto) | Backend | Dep |
+|---|---|---|---|
+| `hanr_fft_amoc` | `HanrFftAmoc` | FFT + ruptures (AMOC) | ✅ |
+| `hanr_fft_binseg` | `HanrFftBinseg` | FFT + ruptures (BinSeg) | ✅ |
+| `hanr_fft_sma` | `HanrFftSma` | FFT + média móvel (`mas`) | ✅ |
+| `hanr_fft_amoc_cusum` | `HanrFftAmocCusum` | FFT + AMOC + CUSUM | ✅ |
+| `hanr_fft_binseg_cusum` | `HanrFftBinsegCusum` | FFT + BinSeg + CUSUM | ✅ |
+| `han_autoencoder` | `HanAutoencoder` | `pydaltoolbox.AutoencBaseEd` (torch já transitivo) | ✅ |
+| `hanr_garch` | `HanrGarch` | `arch` (sGARCH+ARMA) | 🆕 `[garch]` |
+| `hanr_emd` | `HanrEmd` | `EMD-signal` (CEEMD) | 🆕 `[emd]` |
+| `hanr_remd` | `HanrRemd` | `EMD-signal` + statsmodels ARIMA | 🆕 `[emd]` |
+| `hanr_wavelet` | `HanrWavelet` | `PyWavelets` (SWT≈MODWT) | 🆕 `[wavelet]` |
+| `hanr_rtad` | `HanrRtad` | `EMD-signal` + rolling (pandas) | 🆕 `[emd]` |
+
+### Change point (`hcp_*`)
+
+| R | Python (proposto) | Backend | Dep |
+|---|---|---|---|
+| `hcp_cf_lr` | `HcpCfLr` | ChangeFinder c/ regressão linear | 🔨 nativo |
+| `hcp_cf_arima` | `HcpCfArima` | ARIMA (reusa `pytspredit`/statsmodels) | ✅ |
+| `hcp_cf_ets` | `HcpCfEts` | ETS (`statsmodels` ExponentialSmoothing) | ✅ |
+| `hcp_chow` | `HcpChow` | teste F de Chow (`statsmodels` OLS) | 🔨 nativo |
+| `hcp_gft` | `HcpGft` | fluctuation/F-stats (`statsmodels`) | 🔨 nativo |
+| `hcp_joinpoint` | `HcpJoinpoint` | joinpoint (lm/cor) | 🔨 nativo |
+| `hcp_scp` | `HcpScp` | OLS segmentado (`lm`) | 🔨 nativo |
+| `hcp_bocpd` | `HcpBocpd` | BOCPD Adams&MacKay (R usa `ocp`, só *Suggests*) | 🔨 nativo |
+| `hcp_waypoint` | `HcpWaypoint` | `pydaltoolbox.AutoencBaseEd` | ✅ |
+| `hcp_garch` | `HcpGarch` | `arch` + OLS 1º estágio | 🆕 `[garch]` |
+
+### Clustering / classificação / multivariado
+
+| R | Python (proposto) | Backend | Dep |
+|---|---|---|---|
+| `hanc_ml` | `HancMl` | `pydaltoolbox` classificadores (`ClaRf/Svm/...`) | ✅ |
+| `hanct_dtw` | `HanctDtw` | DTW (`dtaidistance` ou `tslearn`) | 🆕 `[dtw]` |
+| `hmu_pca` | `HmuPca` | PCA multivariado (`sklearn`/`DtPca`) | ✅ |
+
+### Motif / discord (simbólico + matrix profile)
+
+| R | Python (proposto) | Backend | Dep |
+|---|---|---|---|
+| `trans_sax` | `TransSax` | SAX (z-norm + binning por quantil) | 🔨 nativo |
+| `trans_xsax` | `TransXsax` | xSAX | 🔨 nativo |
+| `hmo_sax` | `HmoSax` | motif via SAX | 🔨 nativo |
+| `hmo_xsax` | `HmoXsax` | motif via xSAX | 🔨 nativo |
+| `hdis_sax` | `HdisSax` | discord via SAX | 🔨 nativo |
+| `hmo_mp` | `HmoMp` | matrix profile (`stumpy`) | 🆕 `[motif]` |
+| `hdis_mp` | `HdisMp` | matrix profile (`stumpy`) | 🆕 `[motif]` |
+
+### Ensembles / visualização / streaming / infra
+
+| R | Python (proposto) | Backend | Dep |
+|---|---|---|---|
+| `mas` | `mas` (util) | média móvel | ✅ |
+| `har_ensemble` | `HarEnsemble` | combinação de detectores | ✅ |
+| `har_ensemble_fuzzy` | `HarEnsembleFuzzy` (+`fuzzify`) | ensemble fuzzy | ✅ |
+| `har_plot` | `har_plot` | `matplotlib` | 🆕 `[plot]` |
+| `har_plot_ensemble` | `har_plot_ensemble` | `matplotlib` | 🆕 `[plot]` |
+| `har_online_*` | runners online (memory/sources/executor/session) | puro | ✅ |
+| `har_stream_eval` / `har_stream_experiment` | avaliação em streaming | puro | ✅ |
+| `united` / `united_loadfulldata` | experimento "united" | puro | ✅ |
+| datasets `examples_motifs`, `examples_harbinger` | extrair do R | — | ✅ |
+
+> ## ⚠️ PENDÊNCIA CRÍTICA — datasets miniatura + `loadfulldata` (corrigir ao chegar na 0.7.0)
+>
+> **Este ponto está SUBESTIMADO acima e precisa ser acertado — igual ao que fizemos no
+> pytspredit (0.7.0).** O `harbinger` R usa o MESMO padrão **miniatura-no-pacote +
+> `loadfulldata` remoto** que o `tspredit`, e o plano atual não reflete isso:
+>
+> - `united_loadfulldata` **NÃO é "puro"** — é exatamente o `loadfulldata` do tspredit:
+>   lê `attr(x, "url")` da miniatura e **baixa o `.RData` completo** de um repo remoto
+>   (ver `harbinger/R/united_loadfulldata.R`; assinatura `loadfulldata(x, envir=)`,
+>   aceita nome ou objeto, carrega no `envir`).
+> - Os **datasets de benchmark de detecção estão FALTANDO no roadmap acima.** O
+>   `harbinger/data/` embarca **miniaturas** (cada uma com `attr(url)`): `A1Benchmark`…
+>   `A4Benchmark` (Yahoo), `gecco`, `mit_bih_MLII/V1/V2/V5`, `nab_*` (6), `oil_3w_*` (7),
+>   `ucr_*` (ecg/int_bleeding/nasa/power_demand), além de `examples_*`. Verificar as urls
+>   reais com `Rscript` (análogo ao que fiz no tspredit).
+>
+> **Correção exigida (fazer IGUAL ao pytspredit — ver `C:\Git\dal\pytspredit\develop\
+> planejamento.md` §5.4 / release 0.7.0 e a tabela de deps):**
+> 1. **Miniaturas embarcadas** no pacote, convertidas do `.RData` via `Rscript` para
+>    formato neutro (CSV para data.frame; JSON para listas) + `manifest.json` com
+>    `{nome: {url, kind}}`. Sem dependência nova; funciona offline.
+> 2. **`datasets.loadfulldata(nome|obj)`** num **extra `[bench]`** usando um leitor RData
+>    puro-Python (`rdata`, talvez `pyreadr`) que baixa o `.RData` completo das **MESMAS
+>    urls remotas** que o R usa (nada de reprocessar/rehospedar). `examples_*` pequenos
+>    seguem embarcados como estão (didáticos).
+>
+> **Seu eu do futuro: ao trabalhar na release de datasets/streaming, NÃO trate
+> `loadfulldata` como trivial — replique o mecanismo do pytspredit aqui.**
+
+**Resumo das deps NOVAS (só 5 libs pesadas), todas como *extras* opcionais:**
+`arch` (`[garch]`), `EMD-signal` (`[emd]`), `PyWavelets` (`[wavelet]`),
+`stumpy` (`[motif]`), DTW lib (`[dtw]`). **`matplotlib` é leve/ubíqua ⇒ dep
+obrigatória** (plots sempre disponíveis; sem extra `[plot]`). Tudo o mais é ✅
+(reuso) ou 🔨 (nativo). `torch` já entra transitivo via `pydaltoolbox` para
+autoencoder/waypoint — **sem dep direta nova**.
+
+## Política de dependências (native vs. dependency)
+
+1. **Núcleo enxuto, imutável:** `pydaltoolbox`, `pytspredit`, `numpy`, `pandas`,
+   `scikit-learn`, `scipy`, `ruptures`, `matplotlib`. `pip install pyharbinger` nunca
+   puxa backend pesado. (`matplotlib` entra no núcleo por ser leve/ubíqua — decisão
+   "misto"; `torch` só chega transitivo via pydaltoolbox, quando o autoencoder é usado.)
+2. **Backend pesado/especializado ⇒ *extra* opcional + import preguiçoso** que,
+   se faltar, levanta erro acionável nomeando o extra. Espelha o padrão do próprio R
+   (`Suggests` + `requireNamespace`, como `hcp_bocpd` faz com `ocp`). Pesadas =
+   `stumpy`, `arch`, `EMD-signal`, DTW, `PyWavelets`.
+3. **Preferir NATIVO (🔨)** quando o algoritmo é pequeno e bem-especificado **ou** a
+   única lib candidata é pesada/abandonada frente às ~50–150 linhas necessárias:
+   SAX/xSAX, ChangeFinder-LR, Chow/GFT/joinpoint/SCP (OLS), BOCPD (Adams&MacKay),
+   `mas`. (BOCPD: o R deixa `ocp` em *Suggests*; em Python não há port mantido → nativo.)
+4. **Preferir DEPENDÊNCIA (🆕)** quando o algoritmo é grande/numericamente sutil e há
+   lib canônica, mantida e com *wheel*: GARCH→`arch`, EMD→`EMD-signal`,
+   wavelet→`PyWavelets`, matrix profile→`stumpy`, DTW→`dtaidistance`. Reimplementar
+   isso à mão seria frágil e violaria o princípio "não reimplementar".
+5. **Gate de release:** cada dep nova é validada quanto a *wheel* para a versão de
+   Python alvo (lição do `ruptures` 1.0.6 + `--prefer-binary` no py3.14) antes de entrar.
+
+## Releases graduais — DOIS CICLOS
+
+Estrutura em **duas rodadas** sobre os mesmos temas:
+
+- **Ciclo 1 (baixa dependência):** varre *todos* os temas, mas só as classes **sem dep
+  pesada nova** (✅ reuso / 🔨 nativo). Entrega quase toda a cobertura do R mantendo o
+  núcleo enxuto (nenhum `stumpy`/`arch`/`EMD-signal`/`PyWavelets`/DTW).
+- **Ciclo 2 (dependências pesadas):** volta aos *mesmos temas* acrescentando as classes
+  de maior dependência — **uma família de dep por release**, cada uma como *extra*
+  opcional. **A ser refinado com o Eduardo tema a tema** (ordem/escopo abaixo é esboço).
+
+Granularidade livre (pode ter muitos ciclos pequenos; sem medo de ~20 releases até a
+1.0.0). Cada release = branch próprio, paridade R, testes + ruff + notebooks verdes,
+revisão do Eduardo, ff-merge (mesma cadência da v1).
+
+### Ciclo 1 — baixa dependência (sem dep pesada nova)
+
+- **0.2.0 — Aprendizado & multivariado.** Infra: caminho **multivariado** em
+  `_store_refs`/`_restore_refs` (entrada DataFrame). Detectores: `HancMl`,
+  `HanAutoencoder`, `HmuPca` (todos via pydaltoolbox; torch já transitivo). Infra
+  amortizada em três detectores.
+- **0.3.0 — Espectral (anomalia).** `mas` + os 5 híbridos FFT
+  (`HanrFftAmoc/Binseg/Sma/AmocCusum/BinsegCusum`).
+- **0.4.0 — Change point estendido.** `HcpCfLr`, `HcpCfArima`, `HcpCfEts`, `HcpChow`,
+  `HcpGft`, `HcpJoinpoint`, `HcpScp`, `HcpBocpd` (nativo Adams&MacKay), `HcpWaypoint`.
+- **0.5.0 — Simbólico (motif/discord nativo).** SAX/xSAX: `TransSax`, `TransXsax`,
+  `HmoSax`, `HmoXsax`, `HdisSax`. Embarca dataset `examples_motifs`.
+- **0.6.0 — Ensembles + visualização.** `HarEnsemble`, `HarEnsembleFuzzy` (+`fuzzify`) +
+  `har_plot`/`har_plot_ensemble` (`matplotlib`, dep do núcleo).
+- **0.7.0 — Streaming / online (fecha o Ciclo 1).** Framework online
+  (memory/sources/executor/session) + `har_stream_eval`/`har_stream_experiment` +
+  `united`/`united_loadfulldata`. Embarca dataset `examples_harbinger`.
+
+Ao fim do Ciclo 1: todo o R portado **exceto** as 5 famílias de dep pesada.
+
+### Ciclo 2 — dependências pesadas (extras opcionais) — *esboço, a refinar*
+
+Uma família de dep por release; cada detector faz import preguiçoso + erro acionável.
+Ordem/escopo **a combinar com o Eduardo** (ele refina este ciclo em detalhe):
+
+- **0.8.0 — Motif/discord por matrix profile.** `HmoMp`, `HdisMp` — extra `[motif]` (`stumpy`).
+- **0.9.0 — GARCH.** `HanrGarch`, `HcpGarch` — extra `[garch]` (`arch`).
+- **0.10.0 — EMD.** `HanrEmd`, `HanrRemd`, `HanrRtad` — extra `[emd]` (`EMD-signal`).
+- **0.11.0 — Wavelet.** `HanrWavelet` — extra `[wavelet]` (`PyWavelets`).
+- **0.12.0 — DTW.** `HanctDtw` — extra `[dtw]` (`dtaidistance`/`tslearn`).
+
+### Fechamento
+
+- **1.0.0 — Paridade + estabilização.** API pública congelada, um notebook executável
+  por classe, **matriz completa de paridade R↔Python**, site de documentação, passada
+  de depreciações. Marca paridade de funcionalidades com o R.
+
+## Decisões travadas (2026-11-19, Eduardo)
+
+- **(A) Empacotamento = misto.** Deps leves/ubíquas (`matplotlib`) obrigatórias no
+  núcleo; só as pesadas (`stumpy`, `arch`, `EMD-signal`, DTW, `PyWavelets`) como
+  *extras* opcionais com import preguiçoso + erro acionável (padrão `Suggests` do R).
+- **(B) Granularidade = dois ciclos temáticos.** Ciclo 1 (0.2→0.7) varre todos os
+  temas com baixa dependência; Ciclo 2 (0.8→0.12, *esboço*) volta aos temas com as
+  classes de dep pesada, uma família por release — **Eduardo refina o Ciclo 2 em
+  detalhe**. Granularidade livre (muitos ciclos pequenos OK; pode chegar a ~20 releases).
+- **(C) ⚠️ Datasets miniatura + `loadfulldata` = replicar o padrão do pytspredit.**
+  Ver a **PENDÊNCIA CRÍTICA** na seção de Ensembles/infra acima: o `harbinger` usa
+  miniatura-no-pacote + `loadfulldata` que baixa o `.RData` completo de url remota
+  (benchmark de detecção: Yahoo A1–A4, gecco, MIT-BIH, NAB, oil_3w, UCR). Corrigir na
+  0.7.0 IGUAL ao pytspredit (miniatura embarcada + `[bench]` extra com leitor RData).
