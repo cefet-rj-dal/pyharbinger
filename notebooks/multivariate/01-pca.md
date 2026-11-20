@@ -38,29 +38,24 @@ mv = pd.DataFrame({
 mv.head()
 ```
 
-## Faithful R behaviour (keep all components)
+## Detect
 
-By default `HmuPca()` keeps **all** principal components, faithfully reproducing
-R's `hmu_pca`. With all components retained the reconstruction is exact, so the
-residual collapses to floating-point round-off — the detector is effectively
-degenerate (this matches R, where `max|res|` is ~1e-31).
+By default `HmuPca()` keeps the leading components that explain 90% of the
+variance (capped at `n_features - 1`, so at least one component is always
+dropped). The discarded components form the reconstruction error used as the
+anomaly score. Column `a` carries the injected anomaly, which the detector flags.
 
 ```python
 det = HmuPca().detect(mv)
 res = np.asarray(det.attrs["res"], dtype=float)
-print("max |residual| (all components):", f"{np.nanmax(np.abs(res)):.3e}")
+print("max |residual|:", f"{np.nanmax(res):.3f}")
+print("detected (idx):", det.index[det["event"]].tolist())
 ```
 
-## A genuine detector (pyharbinger extension)
-
-Keeping fewer components than the input dimensionality turns it into a real
-reconstruction-error detector. `n_components` is a **pyharbinger extension** (not
-present in R).
+You can also fix the number of retained components explicitly:
 
 ```python
-det = HmuPca(n_components=1).detect(mv)
-res = np.asarray(det.attrs["res"], dtype=float)
-print("max |residual| (1 component):", f"{np.nanmax(np.abs(res)):.3f}")
+det = HmuPca(num_components=1).detect(mv)
 print("detected (idx):", det.index[det["event"]].tolist())
 ```
 

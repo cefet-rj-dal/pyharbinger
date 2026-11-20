@@ -95,9 +95,10 @@ documented:
 - `HancMl` detections match R (e.g. the `hanc_ml` k-NN example flags the same
   positions), but class *probabilities* can differ because scikit-learn and R's
   `class::knn` break ties differently.
-- `HmuPca` with its faithful default (all components) reproduces R's degenerate
-  residual (~1e-31 round-off); use the `n_components` extension for genuine
-  multivariate detection.
+- `HmuPca` matches R exactly (same events and residuals) after fixing a latent
+  degeneracy in R's `hmu_pca`, which kept *all* principal components; both now
+  reconstruct from a reduced set (90% variance by default, capped at
+  `n_features - 1`).
 
 ## Related DAL projects
 

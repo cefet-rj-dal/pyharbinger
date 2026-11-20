@@ -291,7 +291,12 @@ Tudo o mais é ✅ (reuso) ou 🔨 (nativo).
 1. **Núcleo enxuto, imutável:** `pydaltoolbox`, `pytspredit`, `numpy`, `pandas`,
    `scikit-learn`, `scipy`, `ruptures`, `matplotlib`. `pip install pyharbinger` nunca
    puxa backend pesado. (`matplotlib` entra no núcleo por ser leve/ubíqua — decisão
-   "misto"; `torch` só chega transitivo via pydaltoolbox, quando o autoencoder é usado.)
+   "misto". **`torch` NÃO é transitivo** via pydaltoolbox — o `AutoencBaseEd` de lá é
+   stub identidade; o autoencoder exige `torch` como *extra* `[deep]` próprio, Ciclo 2.)
+   > **Lição (2026-11-19):** NÃO assumir que uma classe-base do pydaltoolbox é uma
+   > implementação completa — **abrir o arquivo e verificar** antes de classificar a
+   > dependência no roadmap. O `AutoencBaseEd` parecia resolver o autoencoder "de graça",
+   > mas é stub. Verificar o backend real de cada 🆕/✅ ao montar/revisar o plano.
 2. **Backend pesado/especializado ⇒ *extra* opcional + import preguiçoso** que,
    se faltar, levanta erro acionável nomeando o extra. Espelha o padrão do próprio R
    (`Suggests` + `requireNamespace`, como `hcp_bocpd` faz com `ocp`). Pesadas =
@@ -386,13 +391,18 @@ Ordem/escopo **a combinar com o Eduardo** (ele refina este ciclo em detalhe):
   seleção de candidatos). `multivariate.py::HmuPca` (PCA sklearn; z-score ddof=1).
   **Paridade R:** `HancMl` com `ClaKnn(k=3)` bate EXATO no exemplo `tt` (eventos
   10, 21) — probabilidades diferem por backend kNN (tolerância já documentada no
-  HanrMl). **`HmuPca` é DEGENERADO no próprio R** (mantém todas as PCs → resíduo =
-  ruído de float ~1e-31; Python reproduz: max|res| 9.861e-32 vs 9.86e-32 no R; os
-  eventos de ruído NÃO são reproduzíveis entre backends). Porta fiel (default =
-  comportamento R) + **extensão `n_components`** (não existe no R) que o torna um
-  detector real. 51 testes verdes (+8), ruff limpo, 7 notebooks (novos:
-  classification/01, multivariate/01). **Correção de escopo:** `AutoencBaseEd` do
-  pydaltoolbox é stub identidade → `HanAutoencoder`/`HcpWaypoint` precisam de torch
-  → movidos para o Ciclo 2 (`[deep]`, release 0.13.0). **Issue latente no R
-  harbinger a reportar:** `hmu_pca` mantém todas as componentes (detector
-  degenerado); sugerir adicionar seleção de componentes no R também.
+  HanrMl). **`HmuPca` agora bate EXATO com o R** (eventos [50], res max 1.0539,
+  cabeçalho idêntico) — ver correção no R abaixo. 51 testes verdes (+8), ruff
+  limpo, 7 notebooks (novos: classification/01, multivariate/01). **Correção de
+  escopo:** `AutoencBaseEd` do pydaltoolbox é stub identidade →
+  `HanAutoencoder`/`HcpWaypoint` precisam de torch → movidos para o Ciclo 2
+  (`[deep]`, release 0.13.0).
+- **2026-11-19 — BUG CORRIGIDO NO R `harbinger` (`R/hmu_pca.R`).** O `hmu_pca`
+  mantinha TODAS as componentes principais → reconstrução exata → resíduo = ruído
+  de float (~1e-31): detector degenerado. **Correção (autorizada pelo Eduardo):**
+  adicionados parâmetros `num_components`/`variance`; reconstrução a partir das
+  componentes líderes (default = 90% da variância, com teto em `p-1` pra sempre
+  descartar ≥1 componente). Agora o default detecta a anomalia real (idx 50 em
+  `[simple, contextual]`, res max 1.054). O Python `HmuPca` foi alinhado ao R
+  corrigido (mesmos params/regra) → **paridade exata**. ⚠️ Mudança é no repo R
+  (c:\Git\dal\harbinger), separado — **aguardando OK do Eduardo para commit/push lá**.
