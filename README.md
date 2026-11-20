@@ -57,7 +57,7 @@ Every detector extends `Harbinger` and returns a detection table with columns
 |---|---|
 | **Core** | `Harbinger` (base contract), deviation / filter / candidate-selection utilities |
 | **Evaluation** | `HarEval` (hard), `HarEvalSoft` (SoftED, soft matching via the Hungarian algorithm) |
-| **Anomaly** | `HanrMl` (forecasting residuals, wraps a pytspredit regressor), `HanrFft`, `HanrHistogram`, `HanrFbiad` |
+| **Anomaly** | `HanrMl` (forecasting residuals, wraps a pytspredit regressor), `HanrFft`, `HanrFftAmoc`, `HanrFftBinseg`, `HanrFftAmocCusum`, `HanrFftBinsegCusum`, `HanrHistogram`, `HanrFbiad` |
 | **Change point** | `HcpAmoc`, `HcpBinseg`, `HcpPelt` (via `ruptures`), `HcpKswin`, `HcpPageHinkley` |
 | **Clustering** | `HanctKmeans` (anomalies / discords) |
 | **Classification** | `HancMl` (supervised; wraps a pydaltoolbox classifier) |

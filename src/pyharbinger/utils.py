@@ -38,7 +38,22 @@ __all__ = [
     "har_filter_mad",
     "har_filter_none",
     "har_filter_ratio",
+    "mas",
 ]
+
+
+def mas(x, order: int) -> np.ndarray:
+    """Simple moving-average smoother (Python port of R ``mas``).
+
+    Returns the length-``(len(x) - order + 1)`` vector of window means
+    ``mean(x[t:t+order])`` for ``t = 0 .. len(x)-order``.
+    """
+    x = np.asarray(x, dtype=float)
+    n = len(x)
+    if order < 1 or order > n:
+        raise ValueError("order must be between 1 and len(x).")
+    cumulative = np.concatenate(([0.0], np.cumsum(x)))
+    return (cumulative[order:] - cumulative[:-order]) / order
 
 
 @dataclass

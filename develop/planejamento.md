@@ -333,8 +333,10 @@ revisão do Eduardo, ff-merge (mesma cadência da v1).
   `_store_refs`/`_restore_refs` (entrada DataFrame). Detectores: `HancMl`
   (classificador pydaltoolbox/sklearn) e `HmuPca` (PCA sklearn). `HanAutoencoder`
   saiu para o Ciclo 2 (torch; ver correção acima).
-- **0.3.0 — Espectral (anomalia).** `mas` + os 5 híbridos FFT
-  (`HanrFftAmoc/Binseg/Sma/AmocCusum/BinsegCusum`).
+- **0.3.0 — Espectral (anomalia).** `mas` + os 4 híbridos FFT-cut
+  (`HanrFftAmoc/Binseg/AmocCusum/BinsegCusum`). ⚠️ **`HanrFftSma` tem BUG no R**
+  (recycling: `serie - ts_sma` com comprimentos incompatíveis) → tratado à parte
+  (fix no R + port, igual ao `hmu_pca`), decisão pendente com o Eduardo.
 - **0.4.0 — Change point estendido.** `HcpCfLr`, `HcpCfArima`, `HcpCfEts`, `HcpChow`,
   `HcpGft`, `HcpJoinpoint`, `HcpScp`, `HcpBocpd` (nativo Adams&MacKay). (`HcpWaypoint`
   saiu para o Ciclo 2 — torch.)
@@ -406,3 +408,15 @@ Ordem/escopo **a combinar com o Eduardo** (ele refina este ciclo em detalhe):
   `[simple, contextual]`, res max 1.054). O Python `HmuPca` foi alinhado ao R
   corrigido (mesmos params/regra) → **paridade exata**. ⚠️ Mudança é no repo R
   (c:\Git\dal\harbinger), separado — **aguardando OK do Eduardo para commit/push lá**.
+
+- **2026-11-20 — 0.3.0 IMPLEMENTADO** (branch `milestone-5-spectral-fft`, sai da
+  main). `utils.mas` (média móvel, comprimento n-order+1). `anomaly.py`: base
+  `_HanrFftCut` + `HanrFftAmoc/HanrFftBinseg/HanrFftAmocCusum/HanrFftBinsegCusum`
+  (FFT high-pass; cutoff = change-point no espectro de potência via ruptures
+  `model="l2"`: AMOC=`Dynp(n_bkps=1)`, BinSeg=`Binseg(pen=3·log n)`; cumsum opcional;
+  binseg_cusum usa highgroup). **Paridade R EXATA** em `examples_anomalies$simple`
+  (todos evento 50; res_sum amoc/binseg 0.261971, amoc_cusum 13.187635,
+  binseg_cusum 0.059028; cutindex 5/5/4/39 batem com `cpt.mean`). 64 testes (+13),
+  ruff limpo, 7 notebooks. **`HanrFftSma` ADIADO:** o R `hanr_fft_sma` tem bug de
+  recycling (`serie - ts_sma`, lengths n vs n-window+1) + usa `spec.pgram`; decidir
+  com o Eduardo entre corrigir o R (alinhar a MA com warm-up) ou portar o recycling.

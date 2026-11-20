@@ -15,12 +15,25 @@ All of them reuse the shared :class:`~pyharbinger.harbinger.Harbinger` hooks
 """
 from __future__ import annotations
 
+from math import log
+
 import numpy as np
+import ruptures as rpt
 from pytspredit import ts_data, ts_projection
 
 from .harbinger import Harbinger
+from .utils import har_candidate_selection_highgroup
 
-__all__ = ["HanrFbiad", "HanrFft", "HanrHistogram", "HanrMl"]
+__all__ = [
+    "HanrFbiad",
+    "HanrFft",
+    "HanrFftAmoc",
+    "HanrFftAmocCusum",
+    "HanrFftBinseg",
+    "HanrFftBinsegCusum",
+    "HanrHistogram",
+    "HanrMl",
+]
 
 
 # --- hanr_ml ----------------------------------------------------------------
@@ -108,6 +121,98 @@ class HanrFft(Harbinger):
         selection = self.har_outliers_check(outliers, res, self.serie)
 
         return self._restore_refs(anomalies=selection.mask, res=res, threshold=selection.threshold)
+
+
+# --- hanr_fft_* (spectral change-point cutoff) ------------------------------
+
+
+def _spectrum_cut_index(freqs: np.ndarray, binseg: bool) -> int:
+    """Cutoff index from a change point in the power spectrum (R ``compute_cut_index``).
+
+    R uses ``changepoint::cpt.mean`` (change in mean) with method AMOC or BinSeg
+    and returns the *last* detected change point. Here ``ruptures`` reproduces it
+    with the L2 (mean-shift) cost: AMOC = a single breakpoint; BinSeg = a
+    ``3*log(n)`` penalty (matching :class:`HcpPelt`'s calibration and R's cpts).
+    """
+    k = len(freqs)
+    signal = np.asarray(freqs, dtype=float)
+    if binseg:
+        bkps = rpt.Binseg(model="l2", min_size=1, jump=1).fit(signal).predict(pen=3.0 * log(k))
+    else:
+        bkps = rpt.Dynp(model="l2", min_size=1, jump=1).fit(signal).predict(n_bkps=1)
+    cpts = [b for b in bkps if b < k]
+    return cpts[-1] if cpts else 1
+
+
+class _HanrFftCut(Harbinger):
+    """Shared machinery for the FFT high-pass detectors with a spectral cutoff.
+
+    Subclasses set :attr:`_binseg` (AMOC vs. BinSeg change point) and
+    :attr:`_cusum` (whether the cutoff is found on the cumulative spectrum).
+    """
+
+    _binseg = False
+    _cusum = False
+
+    def detect(self, serie, **kwargs):
+        if serie is None:
+            raise ValueError("No data was provided for computation")
+        self._store_refs(serie)
+
+        fft_signal = np.fft.fft(self.serie)
+        spectrum = np.abs(fft_signal) ** 2
+        half_spectrum = spectrum[: len(self.serie) // 2 + 1]
+
+        freqs = np.cumsum(half_spectrum) if self._cusum else half_spectrum
+        cutindex = _spectrum_cut_index(freqs, self._binseg)
+        n = len(fft_signal)
+
+        # Zero out low frequencies (high-pass), both symmetric halves.
+        fft_signal[:cutindex] = 0
+        fft_signal[n - cutindex - 1 :] = 0
+
+        filtered_series = np.real(np.fft.ifft(fft_signal))
+
+        res = self.har_distance(filtered_series)
+        outliers = self.har_outliers(res)
+        selection = self.har_outliers_check(outliers, res, self.serie)
+
+        return self._restore_refs(anomalies=selection.mask, res=res, threshold=selection.threshold)
+
+
+class HanrFftAmoc(_HanrFftCut):
+    """FFT high-pass detector; cutoff = AMOC change point of the power spectrum."""
+
+    _binseg = False
+    _cusum = False
+
+
+class HanrFftBinseg(_HanrFftCut):
+    """FFT high-pass detector; cutoff = last BinSeg change point of the power spectrum."""
+
+    _binseg = True
+    _cusum = False
+
+
+class HanrFftAmocCusum(_HanrFftCut):
+    """FFT high-pass detector; cutoff = AMOC change point of the cumulative spectrum."""
+
+    _binseg = False
+    _cusum = True
+
+
+class HanrFftBinsegCusum(_HanrFftCut):
+    """FFT high-pass detector; cutoff = last BinSeg change point of the cumulative spectrum.
+
+    Uses the high-group candidate selection (as in R ``hanr_fft_binseg_cusum``).
+    """
+
+    _binseg = True
+    _cusum = True
+
+    def __init__(self):
+        super().__init__()
+        self.har_outliers_check = har_candidate_selection_highgroup
 
 
 # --- hanr_histogram ---------------------------------------------------------

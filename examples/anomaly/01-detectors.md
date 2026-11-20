@@ -38,6 +38,34 @@ print(HanrFft().evaluate(det, event)["confMatrix"])
     detection_FALSE           0          100
     
 
+## FFT hybrids — spectral change-point cutoff
+
+These variants keep the same FFT high-pass idea but choose the cutoff frequency
+from a **change point in the power spectrum** (AMOC or BinSeg), optionally on the
+cumulative spectrum. `HanrFftBinsegCusum` uses high-group candidate selection.
+
+
+```python
+from pyharbinger import (
+    HanrFftAmoc, HanrFftBinseg, HanrFftAmocCusum, HanrFftBinsegCusum,
+)
+
+for name, det_model in [
+    ("fft_amoc", HanrFftAmoc()),
+    ("fft_binseg", HanrFftBinseg()),
+    ("fft_amoc_cusum", HanrFftAmocCusum()),
+    ("fft_binseg_cusum", HanrFftBinsegCusum()),
+]:
+    det = det_model.detect(serie)
+    print(f"{name:18s} detected: {det.index[det['event']].tolist()}")
+```
+
+    fft_amoc           detected: [49]
+    fft_binseg         detected: [49]
+    fft_amoc_cusum     detected: [49]
+    fft_binseg_cusum   detected: [49]
+    
+
 ## HanrHistogram — histogram density
 
 Flags observations that fall into low-density or out-of-range histogram bins.

@@ -83,3 +83,13 @@ def test_candidate_selection_highgroup_picks_max():
     flt = FilterResult(np.array([1, 2, 3]), (0.0, 0.0))
     high = har_candidate_selection_highgroup(flt, dev, dev)
     assert np.where(high.mask)[0].tolist() == [2]
+
+
+def test_mas_moving_average():
+    from pyharbinger import mas
+
+    x = np.array([1.0, 2, 3, 4, 5])
+    # Window means: (1+2+3)/3, (2+3+4)/3, (3+4+5)/3 -> length n-order+1.
+    np.testing.assert_allclose(mas(x, 3), [2.0, 3.0, 4.0])
+    assert len(mas(x, 1)) == 5
+    assert mas(x, 5)[0] == 3.0

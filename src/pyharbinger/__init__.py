@@ -10,7 +10,16 @@ scikit-learn / scipy / ruptures with thin adapters.
 from __future__ import annotations
 
 from . import datasets, utils
-from .anomaly import HanrFbiad, HanrFft, HanrHistogram, HanrMl
+from .anomaly import (
+    HanrFbiad,
+    HanrFft,
+    HanrFftAmoc,
+    HanrFftAmocCusum,
+    HanrFftBinseg,
+    HanrFftBinsegCusum,
+    HanrHistogram,
+    HanrMl,
+)
 from .changepoint import HcpAmoc, HcpBinseg, HcpKswin, HcpPageHinkley, HcpPelt
 from .classification import HancMl
 from .clustering import HanctKmeans
@@ -30,15 +39,20 @@ from .utils import (
     har_filter_mad,
     har_filter_none,
     har_filter_ratio,
+    mas,
 )
 
-__version__ = "0.2.0"
+__version__ = "0.3.0"
 
 __all__ = [
     "HancMl",
     "HanctKmeans",
     "HanrFbiad",
     "HanrFft",
+    "HanrFftAmoc",
+    "HanrFftAmocCusum",
+    "HanrFftBinseg",
+    "HanrFftBinsegCusum",
     "HanrHistogram",
     "HanrMl",
     "HarEval",
@@ -63,5 +77,6 @@ __all__ = [
     "har_filter_mad",
     "har_filter_none",
     "har_filter_ratio",
+    "mas",
     "utils",
 ]
