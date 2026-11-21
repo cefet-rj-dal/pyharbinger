@@ -621,3 +621,28 @@ Ordem/escopo **a combinar com o Eduardo** (ele refina este ciclo em detalhe):
   **Próximo:** pausa p/ revisão do Eduardo → ff-merge. Depois 0.4.5 = forecast++
   (ChangeFinder SDAR original de Takeuchi&Yamanishi 2006) e 0.4.6 = ocp++ (BOCPD
   pela posterior de run-length `P(r_t=0)` + poda ε + log-space + streaming).
+
+- **2026-11-21 — 0.4.5 = `forecast`++ IMPLEMENTADO** (branch
+  `milestone-11-forecast-plusplus`, sai da main/0.4.4). `HcpCfArima`/`HcpCfEts`
+  re-engenheirados num **ChangeFinder robusto** nativo (puro numpy, sem `forecast`
+  **nem `statsmodels`**): **união** de (1) o ChangeFinder canônico de 2 estágios
+  **SDAR** (Sequentially Discounting AutoRegressive, Takeuchi & Yamanishi 2006,
+  log-loss online) — forte em abrupto/variância/múltiplas quebras — com (2) a
+  **quebra mean+variance** (reusa `_meanvar_single_break` do 0.4.4) — recupera
+  mudanças de tendência/slope suaves que o surprise-AR não vê. `HcpCfArima` usa
+  preditor AR (SDAR); `HcpCfEts` usa Holt descontado (nível+tendência). Novos
+  helpers `_causal_ma`/`_sdar_ar_scores`/`_sdar_holt_scores` + base
+  `_HcpRobustChangeFinder` (substituem os helpers statsmodels `_auto_arima`/
+  `_auto_ets`/`_kpss_ndiffs`/`_fit_sarimax`/`_arima_trend` e o `_HcpChangeFinder`).
+  **Descoberta importante (Ação 1):** o SDAR puro fica em ~2.3 (ABAIXO do R 2.92) —
+  ganha nas difíceis mas é cego a rampas suaves; a UNIÃO com a quebra mean+variance
+  resolve. **Gate Ação 1++ (SoftED-F1 vs ground-truth, soma/7):** cf_arima **3.84**
+  (port fiel 2.78 / R 2.92); cf_ets **3.64** (port 2.66 / R 2.66) — ambos superam o
+  R. `statsmodels` removido das deps do pyproject (não é mais importado; cf agora é
+  puro numpy → habilita o R a largar o `forecast`). 139 testes
+  (test_changepoint_cf_forecast.py reescrito p/ critério ++: bate-o-R + regressão +
+  propriedades do SDAR), ruff limpo, 7 notebooks, build+twine check PASS 0.4.5.
+  Decisão de rota (AskUserQuestion): **"ChangeFinder híbrido/robusto"** (Eduardo),
+  porque o forecast NÃO é de nicho e no Python já estava forecast-free. **Próximo:**
+  pausa p/ revisão → ff-merge/publish; **backport p/ R (2.1.747, larga forecast)**;
+  depois 0.4.6 = ocp++.

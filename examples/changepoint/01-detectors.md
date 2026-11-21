@@ -160,20 +160,22 @@ for name, det_model in [("chow", HcpChow()), ("gft", HcpGft())]:
 > — the mean+variance cost recovers variance/amplitude regimes the original
 > mean-shift model misses. See `develop/benchmark_backimpl.py`.
 
-## ChangeFinder with ARIMA / ETS (native forecast replacement)
+## ChangeFinder (forecast replacement, re-engineered "++")
 
-`HcpCfArima` and `HcpCfEts` are the ChangeFinder detectors that model the
-series with a one-step-ahead forecaster and score the residuals. They are
-**native re-implementations** that replace R's dependency on the `forecast`
-package (`auto.arima` / `ets`) — part of the back-implementation initiative. The
-models are fitted with `statsmodels`, but the order/model **selection** (the
-part of `forecast` that drives the result) is ours, so parity is under our
-control.
+`HcpCfArima` and `HcpCfEts` began as native reimplementations that scored
+`statsmodels` ARIMA/ETS residuals. They were then **re-engineered into "++"
+versions** — a native, pure-numpy **robust ChangeFinder** that fuses two
+complementary signals and takes their union:
 
-* `HcpCfArima` — ChangeFinder with a natively order-selected ARIMA model
-  (Hyndman–Khandakar stepwise AICc search; KPSS for the differencing order).
-* `HcpCfEts` — ChangeFinder with a natively selected ETS model (AICc over the
-  non-seasonal ETS family).
+1. the **canonical two-stage SDAR** ChangeFinder of Takeuchi & Yamanishi (2006):
+   an online Sequentially Discounting AutoRegressive model with a forgetting
+   factor, scored by the predictive log-loss — strong on abrupt, variance and
+   multi-change regimes;
+2. a Gaussian **mean+variance structural break** (shared with `HcpChow`/`HcpGft`),
+   which recovers the smooth trend/slope changes the AR-surprise score is blind to.
+
+`HcpCfArima` uses an autoregressive SDAR predictor; `HcpCfEts` a discounted Holt
+(level+trend) predictor. Both are pure numpy — no `forecast`, no `statsmodels`.
 
 
 ```python
@@ -184,18 +186,17 @@ for name, det_model in [("cf_arima", HcpCfArima()), ("cf_ets", HcpCfEts())]:
     print(f"{name:9s} change points at: {det.index[det['event']].tolist()}")
 ```
 
-    cf_arima  change points at: [3, 50, 100, 102, 136]
-    cf_ets    change points at: [13, 100, 109, 136, 194]
+    cf_arima  change points at: [99, 100, 102, 195]
+    cf_ets    change points at: [99, 106, 195]
     
 
-> **Parity note (Action-1 gate).** `HcpCfEts` matches R `ets()` **exactly** on
-> all seven example series. `HcpCfArima` matches R's integration order `d` on all
-> seven series and matches detections exactly on the well-conditioned ones
-> (`simple`, `complex`); on the others the `(p, q)` stepwise order diverges from
-> `forecast` (statsmodels full-ML AICc vs `forecast`'s CSS/ML approximation and
-> stepwise path), so detections overlap substantially but are not identical. This
-> is the documented tolerance for `forecast`'s auto-selection — the same
-> acceptance criterion used for PELT / joinpoint / ELM.
+> **Quality note (Action-1++ gate).** Because the "++" versions deliberately
+> diverge from `forecast`, they are judged by detection quality vs the ground
+> truth (`event` column), not R parity. On the seven `examples_changepoints`
+> series the summed SoftED-F1 rises from the faithful ports' 2.78 / 2.66 (R
+> `forecast` 2.92 / 2.66) to **3.84 (cf_arima) / 3.64 (cf_ets)** — the SDAR
+> surprise catches abrupt/variance regimes while the mean+variance break catches
+> smooth trend changes. See `develop/benchmark_backimpl.py`.
 
 ## Bayesian Online Change Point Detection (native ocp replacement)
 

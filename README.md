@@ -112,15 +112,16 @@ documented:
   diverge from `strucchange`, so the gate is detection quality vs ground truth,
   not R parity: on the example series the summed SoftED-F1 rises from the faithful
   ports' 3.40 / 2.44 (R 3.31 / 2.20) to **3.73 / 3.17** (`develop/benchmark_backimpl.py`).
-- `HcpCfArima` and `HcpCfEts` are **native re-implementations** of R's `forecast`
-  backend (`auto.arima` / `ets`): the models are fitted with `statsmodels`, but
-  the order/model *selection* is ours. `HcpCfEts` matches R `ets()` exactly on all
-  example series. `HcpCfArima` matches R's integration order `d` on all series and
-  matches detections exactly on the well-conditioned ones (`simple`, `complex`);
-  elsewhere the `(p, q)` stepwise selection diverges from `forecast` (statsmodels
-  full-ML AICc vs `forecast`'s CSS/ML approximation and stepwise path), so
-  detections overlap substantially but are not identical — the documented
-  tolerance for `forecast`'s auto-selection.
+- `HcpCfArima` and `HcpCfEts` are **re-engineered "++" versions** of R's `forecast`
+  backend. They are a native, pure-numpy **robust ChangeFinder**: the canonical
+  two-stage online **SDAR** surprise score (Takeuchi & Yamanishi, 2006 — strong on
+  abrupt/variance/multi-change regimes) fused (union) with a Gaussian mean+variance
+  structural break (which recovers smooth trend/slope changes). `HcpCfArima` uses an
+  autoregressive SDAR predictor, `HcpCfEts` a discounted Holt predictor — no
+  `forecast`, no `statsmodels`. The gate is detection quality vs ground truth, not R
+  parity: on the example series the summed SoftED-F1 rises from the faithful ports'
+  2.78 / 2.66 (R `forecast` 2.92 / 2.66) to **3.84 / 3.64**
+  (`develop/benchmark_backimpl.py`).
 - `HcpBocpd` is a **native** (pure numpy/scipy) re-implementation of R's `ocp`
   backend — Bayesian Online Change Point Detection (Adams & MacKay, 2007) with a
   Normal-Inverse-Gamma / Student-t predictive. `ocp` is only an R `Suggests`

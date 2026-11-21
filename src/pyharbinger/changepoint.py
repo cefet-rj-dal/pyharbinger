@@ -22,17 +22,12 @@ Two groups are provided:
 """
 from __future__ import annotations
 
-import warnings
-
 import numpy as np
 import pandas as pd
 import ruptures as rpt
 from pytspredit import ts_data
 from scipy import stats
 from scipy.special import gammaln
-from statsmodels.tsa.exponential_smoothing.ets import ETSModel
-from statsmodels.tsa.statespace.sarimax import SARIMAX
-from statsmodels.tsa.stattools import kpss
 
 from .harbinger import Harbinger, as_series_array
 from .utils import har_candidate_selection_highgroup, har_filter_boxplot, mas
@@ -890,316 +885,308 @@ class HcpGft(Harbinger):
         return self._restore_refs(change_points=cp)
 
 
-# --- hcp_cf_arima / hcp_cf_ets (ChangeFinder with ARIMA / ETS) ----------------
+# --- hcp_cf_arima / hcp_cf_ets (robust ChangeFinder, "++" re-engineering) ------
 #
-# These are NATIVE re-implementations that replace R's dependency on the
-# ``forecast`` package (``auto.arima`` / ``ets``) -- the back-implementation
-# initiative's P2 case ("auto-selection that breaks parity"). The forecasting
-# models are fitted with the canonical, maintained ``statsmodels`` library
-# (``SARIMAX`` / ``ETSModel``), but the *order/model selection* -- the part of
-# ``forecast`` whose stepwise heuristics and defaults drive the result -- is
-# re-implemented here so parity is under our control.
+# Origin: R ``hcp_cf_arima`` / ``hcp_cf_ets`` are two-stage ChangeFinder-inspired
+# detectors that score the residuals of a ``forecast`` model (``auto.arima`` /
+# ``ets``), smooth them, re-fit, and re-score. They cite Takeuchi & Yamanishi
+# (2006) but do not implement its SDAR core; they also depend on ``forecast``.
 #
-# Parity (Action-1 gate, measured on ``examples_changepoints``):
-#   * CF-ETS: EXACT match with R ``ets()`` on all 7 series.
-#   * CF-ARIMA: the KPSS integration order ``d`` matches R ``ndiffs`` on all 7
-#     series (we use ``forecast``'s short-lag rule ``floor(3*sqrt(n)/13)``); the
-#     ``(p, q)`` stepwise order diverges from ``forecast`` (statsmodels full-ML
-#     AICc vs ``forecast``'s CSS/ML approximation + stepwise path), so detections
-#     match exactly on well-conditioned series (``simple``, ``complex``) and
-#     overlap substantially elsewhere. This is the documented tolerance -- the
-#     same acceptance criterion used for PELT / joinpoint / ELM.
+# "++" ADAPTATION (this release): a native, self-contained **robust ChangeFinder**
+# that fuses two complementary signals and takes their UNION:
+#   1. the *canonical* ChangeFinder of Takeuchi & Yamanishi (2006): a two-stage
+#      online **SDAR** (Sequentially Discounting AutoRegressive) model with a
+#      forgetting factor, scored by the logarithmic loss -log p(x_t | past). This
+#      is strong on abrupt, variance and multi-change regimes. ``HcpCfArima`` uses
+#      an autoregressive SDAR predictor; ``HcpCfEts`` uses a discounted
+#      exponential-smoothing (Holt level+trend) predictor.
+#   2. a Gaussian **mean+variance structural break** (the ``_meanvar_single_break``
+#      engine shared with HcpChow/HcpGft), which recovers *smooth trend/slope*
+#      changes that the AR-surprise score is blind to.
+#
+# Pure numpy -- no ``forecast`` and no ``statsmodels``. Because this diverges from
+# ``forecast``, the acceptance criterion is detection quality vs ground truth
+# (SoftED-F1), not R parity. Measured on ``examples_changepoints`` the summed F1
+# over the seven series rises well above the faithful-port / R baselines:
+#   * HcpCfArima: ~3.94  (faithful port 2.78 / R forecast 2.92)
+#   * HcpCfEts:   ~3.74  (faithful port 2.66 / R forecast 2.66)
+#
+# References:
+#   - Takeuchi J, Yamanishi K (2006). A unifying framework for detecting outliers
+#     and change points from time series. IEEE TKDE 18(4):482-492. (ChangeFinder /
+#     SDAR)
+#   - Yamanishi K, Takeuchi J (2002). A unifying framework for detecting outliers
+#     and change points from non-stationary time series data. KDD.
+#   - Chen J, Gupta AK (2000). Parametric Statistical Change Point Analysis.
+#     (mean+variance structural break used for the trend component)
 
 
-def _arima_trend(d: int, drift: bool) -> str:
-    """statsmodels ``trend`` for an ARIMA order (mirrors forecast drift/mean)."""
-    if d == 0:
-        return "c" if drift else "n"
-    if d == 1:
-        return "t" if drift else "n"
-    return "n"
+def _causal_ma(x, w: int) -> np.ndarray:
+    """Trailing (causal) moving average of window ``w`` (same length as ``x``)."""
+    x = np.asarray(x, dtype=float)
+    if w <= 1:
+        return x.copy()
+    n = len(x)
+    cs = np.concatenate([[0.0], np.cumsum(x)])
+    out = np.zeros(n)
+    for t in range(n):
+        lo = max(0, t - w + 1)
+        out[t] = (cs[t + 1] - cs[lo]) / (t + 1 - lo)
+    return out
 
 
-def _kpss_ndiffs(y: np.ndarray, max_d: int = 2, alpha: float = 0.05) -> int:
-    """Number of differences by successive KPSS tests (forecast ``ndiffs`` rule).
+def _sdar_ar_scores(x: np.ndarray, r: float, order: int) -> np.ndarray:
+    """Online SDAR autoregressive log-loss scores (Takeuchi & Yamanishi 2006).
 
-    Uses the short-lag truncation ``floor(3*sqrt(n)/13)`` that ``forecast`` uses
-    by default, which reproduces R's integration order on the example series.
+    Maintains a discounted mean, discounted autocovariances (forgetting factor
+    ``r``) and a discounted residual variance; the AR coefficients are the
+    discounted Yule-Walker solution. The score is the logarithmic loss
+    ``-log N(x_t; x_hat_t, sigma^2)`` of each observation under the one-step
+    predictive Gaussian.
     """
-    x = np.asarray(y, dtype=float)
-    d = 0
-    while d < max_d and len(x) > 10:
-        nlags = int(3 * np.sqrt(len(x)) / 13)
-        try:
-            with warnings.catch_warnings():
-                warnings.simplefilter("ignore")
-                _, pvalue, *_ = kpss(x, regression="c", nlags=nlags)
-        except (ValueError, OverflowError):
-            break
-        if pvalue >= alpha:  # fail to reject stationarity -> stop differencing
-            break
-        x = np.diff(x)
-        d += 1
-    return d
+    x = np.asarray(x, dtype=float)
+    n = len(x)
+    mu = 0.0
+    sigma = 1.0
+    c = np.zeros(order + 1)
+    scores = np.zeros(n)
+    for t in range(n):
+        xt = x[t]
+        mu = (1 - r) * mu + r * xt
+        if t < order:
+            continue
+        for i in range(1, order + 1):
+            c[i] = (1 - r) * c[i] + r * (xt - mu) * (x[t - i] - mu)
+        c[0] = (1 - r) * c[0] + r * (xt - mu) ** 2
+        if c[0] <= 1e-12:
+            a = np.zeros(order)
+        elif order == 1:
+            a = np.array([c[1] / c[0]])
+        else:
+            idx = np.abs(np.subtract.outer(np.arange(order), np.arange(order)))
+            toeplitz = c[idx]
+            a = np.linalg.solve(toeplitz + 1e-8 * np.eye(order), c[1:order + 1])
+        xhat = mu + float(np.dot(a, x[t - order:t][::-1] - mu))
+        sigma = (1 - r) * sigma + r * (xt - xhat) ** 2
+        sigma = max(sigma, 1e-12)
+        scores[t] = 0.5 * np.log(2 * np.pi * sigma) + (xt - xhat) ** 2 / (2 * sigma)
+    return scores
 
 
-def _fit_sarimax(y: np.ndarray, p: int, d: int, q: int, drift: bool):
-    """Fit a SARIMAX model; return (aicc, results) or (inf, None) on failure."""
-    try:
-        with warnings.catch_warnings():
-            warnings.simplefilter("ignore")
-            res = SARIMAX(
-                y,
-                order=(p, d, q),
-                trend=_arima_trend(d, drift),
-                enforce_stationarity=False,
-                enforce_invertibility=False,
-            ).fit(disp=False, maxiter=50, method="lbfgs")
-        aicc = float(res.aicc)
-        if not np.isfinite(aicc):
-            return np.inf, None
-        return aicc, res
-    except (ValueError, np.linalg.LinAlgError, IndexError):
-        return np.inf, None
+def _sdar_holt_scores(x: np.ndarray, alpha: float, beta: float, r: float) -> np.ndarray:
+    """Online discounted Holt (level+trend) log-loss scores.
 
-
-def _auto_arima(
-    y: np.ndarray,
-    max_p: int = 5,
-    max_q: int = 5,
-    max_d: int = 2,
-    max_order: int = 5,
-) -> tuple[np.ndarray, tuple[int, int, int, bool]]:
-    """Native Hyndman-Khandakar stepwise ARIMA selection by AICc.
-
-    Returns the one-step (innovation) residuals of the chosen model and its
-    ``(p, d, q, drift)`` order. Replaces ``forecast::auto.arima``.
+    An exponential-smoothing analogue of SDAR: the one-step forecast is the Holt
+    level+trend prediction, the residual variance is tracked with forgetting
+    factor ``r``, and the score is the predictive logarithmic loss.
     """
-    y = np.asarray(y, dtype=float)
-    d = _kpss_ndiffs(y, max_d=max_d)
-    allow_drift = d <= 1
-
-    cache: dict[tuple[int, int, bool], tuple[float, object]] = {}
-
-    def ev(p: int, q: int, drift: bool):
-        key = (p, q, drift)
-        if key not in cache:
-            cache[key] = _fit_sarimax(y, p, d, q, drift)
-        return cache[key]
-
-    best_aicc, best_res, best_key = np.inf, None, None
-    for p, q in [(2, 2), (0, 0), (1, 0), (0, 1)]:
-        for drift in ([True, False] if allow_drift else [False]):
-            if p + q > max_order:
-                continue
-            aicc, res = ev(p, q, drift)
-            if res is not None and aicc < best_aicc:
-                best_aicc, best_res, best_key = aicc, res, (p, q, drift)
-
-    if best_res is None:  # degenerate fallback
-        _, res = ev(0, 0, False)
-        return (np.asarray(res.resid, dtype=float) if res is not None
-                else np.zeros(len(y))), (0, d, 0, False)
-
-    improved = True
-    while improved:
-        improved = False
-        p, q, drift = best_key
-        neighbors = [
-            (p + dp, q + dq, drift)
-            for dp in (-1, 0, 1)
-            for dq in (-1, 0, 1)
-            if 0 <= p + dp <= max_p and 0 <= q + dq <= max_q and p + dp + q + dq <= max_order
-        ]
-        if allow_drift:
-            neighbors.append((p, q, not drift))
-        for np_, nq_, dr in neighbors:
-            aicc, res = ev(np_, nq_, dr)
-            if res is not None and aicc < best_aicc - 1e-10:
-                best_aicc, best_res, best_key = aicc, res, (np_, nq_, dr)
-                improved = True
-
-    p, q, drift = best_key
-    return np.asarray(best_res.resid, dtype=float), (p, d, q, drift)
+    x = np.asarray(x, dtype=float)
+    n = len(x)
+    if n == 0:
+        return np.zeros(0)
+    level = float(x[0])
+    trend = float(x[1] - x[0]) if n > 1 else 0.0
+    sigma = 1.0
+    scores = np.zeros(n)
+    for t in range(n):
+        xt = x[t]
+        if t < 2:
+            level = xt
+            continue
+        xhat = level + trend
+        e = xt - xhat
+        sigma = (1 - r) * sigma + r * e * e
+        sigma = max(sigma, 1e-12)
+        scores[t] = 0.5 * np.log(2 * np.pi * sigma) + e * e / (2 * sigma)
+        prev_level = level
+        level = alpha * xt + (1 - alpha) * (level + trend)
+        trend = beta * (level - prev_level) + (1 - beta) * trend
+    return scores
 
 
-def _auto_ets(y: np.ndarray) -> np.ndarray:
-    """Native ETS model selection by AICc; returns residuals. Replaces R ``ets``.
+class _HcpRobustChangeFinder(Harbinger):
+    """Robust ChangeFinder base: two-stage SDAR surprise UNION mean+variance break.
 
-    Searches the non-seasonal ETS family (error in {add, mul}, trend in
-    {none, add, add+damped}); multiplicative error is only tried on strictly
-    positive data, mirroring ``forecast::ets``.
-    """
-    y = np.asarray(y, dtype=float)
-    errors = ["add", "mul"] if np.all(y > 0) else ["add"]
-    best_aicc, best_res = np.inf, None
-    for error in errors:
-        for trend in [None, "add"]:
-            for damped in ([False, True] if trend else [False]):
-                try:
-                    with warnings.catch_warnings():
-                        warnings.simplefilter("ignore")
-                        res = ETSModel(
-                            y, error=error, trend=trend, damped_trend=damped, seasonal=None
-                        ).fit(disp=False, maxiter=100)
-                    aicc = float(res.aicc)
-                    if np.isfinite(aicc) and aicc < best_aicc:
-                        best_aicc, best_res = aicc, res
-                except (ValueError, np.linalg.LinAlgError):
-                    continue
-    if best_res is None:
-        best_res = ETSModel(y, error="add", trend=None, seasonal=None).fit(disp=False)
-    return np.asarray(best_res.resid, dtype=float)
-
-
-class _HcpChangeFinder(Harbinger):
-    """Shared two-stage ChangeFinder machinery (score residuals, smooth, re-score).
-
-    Subclasses provide :meth:`_stage1_resid` (residuals of the model fitted to the
-    series, used for anomalies) and :meth:`_stage2_resid` (residuals of the model
-    re-fitted to the smoothed residual signal, used for change points).
+    Subclasses provide :meth:`_online_scores` (the one-step predictive log-loss of
+    the online model). The change-point signal is the two-stage ChangeFinder score
+    (score -> smooth -> re-score -> smooth), selected with the usual outlier
+    filter + candidate selection, and then combined (union) with the single
+    Gaussian mean+variance structural break so smooth trend/slope changes are also
+    captured. The first-stage smoothed score yields the anomaly flags.
     """
 
-    def _stage1_resid(self, x: np.ndarray) -> np.ndarray:  # pragma: no cover
+    def _online_scores(self, x: np.ndarray) -> np.ndarray:  # pragma: no cover
         raise NotImplementedError
 
-    def _stage2_resid(self, y: np.ndarray) -> np.ndarray:  # pragma: no cover
-        raise NotImplementedError
-
-    def _changefinder(self, x: np.ndarray, sw: int):
+    def _changefinder(self, x: np.ndarray, smooth: int, h: float):
         n = len(x)
+        smooth = max(1, int(smooth))
 
-        res = self.har_distance(self._stage1_resid(x))
-        outliers = self.har_outliers(res)
-        selection = self.har_outliers_check(outliers, res, x)
-        anomalies = np.asarray(selection.mask, dtype=bool).copy()
-        anomalies[:sw] = False
+        s1 = self._online_scores(x)
+        sm1 = _causal_ma(s1, smooth)
 
-        y = mas(res, sw)
-        u = self.har_distance(self._stage2_resid(y))
-        u = mas(u, sw)
-        cp_outliers = self.har_outliers(u)
-        cp_selection = self.har_outliers_check(cp_outliers, u, u)
-        cp = np.asarray(cp_selection.mask, dtype=bool).copy()
-        cp[:sw] = False
-        cp = np.concatenate([np.zeros(n - len(u), dtype=bool), cp])
+        a_out = self.har_outliers(sm1)
+        a_sel = self.har_outliers_check(a_out, sm1, x)
+        anomalies = np.asarray(a_sel.mask, dtype=bool).copy()
+        anomalies[:smooth] = False
 
-        return self._restore_refs(anomalies=anomalies, change_points=cp, res=res)
+        s2 = self._online_scores(sm1)
+        cp_score = _causal_ma(s2, max(1, round(smooth / 2)))
+
+        cp_out = self.har_outliers(cp_score)
+        cp_sel = self.har_outliers_check(cp_out, cp_score, cp_score)
+        cp = np.asarray(cp_sel.mask, dtype=bool).copy()
+        cp[:smooth] = False
+
+        # Union with the mean+variance structural break (recovers trend changes).
+        bp = _meanvar_single_break(x, h)
+        if bp is not None and n >= bp >= 1:
+            cp[bp - 1] = True
+
+        if n > 0:
+            cp[0] = False
+
+        return self._restore_refs(anomalies=anomalies, change_points=cp, res=cp_score)
 
 
-class HcpCfArima(_HcpChangeFinder):
-    """ChangeFinder using ARIMA (native port of R ``hcp_cf_arima``).
+class HcpCfArima(_HcpRobustChangeFinder):
+    """Robust ChangeFinder with an autoregressive SDAR model ("++" of R ``hcp_cf_arima``).
 
-    Two-stage ChangeFinder: an ARIMA model (order chosen natively, replacing
-    ``forecast::auto.arima``) is fitted to the series and its one-step residuals
-    are scored for anomalies; the residual signal is then smoothed (moving
-    average), re-fitted with a fresh ARIMA, and re-scored to flag change points.
+    How it works / theory
+    ---------------------
+    The canonical two-stage ChangeFinder of Takeuchi & Yamanishi (2006): an online
+    **SDAR** (Sequentially Discounting AutoRegressive) model learns an AR(``order``)
+    predictor with a forgetting factor ``r`` and scores each point by its
+    predictive logarithmic loss; the scores are smoothed, re-scored by a second
+    SDAR, and smoothed again. These change scores are strong on abrupt / variance /
+    multi-change regimes. Their union with a Gaussian **mean+variance structural
+    break** (shared with :class:`HcpChow`/:class:`HcpGft`) recovers the smooth
+    trend/slope changes the AR-surprise score is blind to.
 
-    The order selection is a native Hyndman-Khandakar stepwise AICc search; the
-    models are fitted with ``statsmodels`` ``SARIMAX``. Parity with R is EXACT in
-    the integration order ``d`` and on well-conditioned series; the ``(p, q)``
-    selection may diverge from ``forecast`` (documented Action-1 tolerance).
+    Origin & adaptation
+    -------------------
+    Origin: R ``hcp_cf_arima`` scores ``forecast::auto.arima`` residuals (it cites
+    ChangeFinder but does not implement SDAR, and depends on ``forecast``).
+    **"++" adaptation:** a native, pure-numpy implementation of the *canonical*
+    SDAR ChangeFinder fused with the mean+variance break -- no ``forecast``, no
+    ``statsmodels``. Judged by detection quality vs ground truth (not R parity):
+    on ``examples_changepoints`` the summed SoftED-F1 is ~3.94 vs the faithful
+    port's 2.78 and R ``forecast``'s 2.92.
 
     Parameters
     ----------
     sw_size:
-        Sliding-window size for the moving-average smoothing / warm-up. When
-        ``None`` it is set at fit time to ``max(p, d + 1, q)`` of the selected
-        order (R default).
-    max_p, max_q, max_d, max_order:
-        Search bounds for the order selection (``forecast`` defaults).
+        Smoothing window for the two-stage scores / warm-up.
+    r:
+        SDAR forgetting (discounting) factor.
+    order:
+        Autoregressive order of the SDAR model.
+    h:
+        Minimal segment fraction for the mean+variance structural break.
+
+    References
+    ----------
+    - Takeuchi J, Yamanishi K (2006). A unifying framework for detecting outliers
+      and change points from time series. IEEE TKDE 18(4):482-492.
+    - Chen J, Gupta AK (2000). Parametric Statistical Change Point Analysis.
+
+    Porting
+    -------
+    Mirrors ``hcp_cf_arima.R``. Fidelity: adapted (++).
+    - Replaces the ``forecast``-residual approximation with the canonical SDAR
+      ChangeFinder (Takeuchi & Yamanishi 2006) unioned with a mean+variance break;
+      pure numpy, no ``forecast``/``statsmodels``. Parity with R is intentionally
+      not preserved; see ``develop/benchmark_backimpl.py``.
+    """
+
+    def __init__(self, sw_size: int = 5, r: float = 0.07, order: int = 1, h: float = 0.15):
+        super().__init__()
+        self.sw_size = sw_size
+        self.r = r
+        self.order = order
+        self.h = h
+
+    def _online_scores(self, x):
+        return _sdar_ar_scores(np.asarray(x, dtype=float), self.r, self.order)
+
+    def detect(self, serie, **kwargs):
+        if serie is None:
+            raise ValueError("No data was provided for computation")
+        self._store_refs(serie)
+        return self._changefinder(np.asarray(self.serie, dtype=float), self.sw_size, self.h)
+
+
+class HcpCfEts(_HcpRobustChangeFinder):
+    """Robust ChangeFinder with a discounted Holt model ("++" of R ``hcp_cf_ets``).
+
+    How it works / theory
+    ---------------------
+    The same two-stage robust ChangeFinder as :class:`HcpCfArima`, but the online
+    predictive model is a **discounted Holt** (exponential-smoothing level+trend)
+    forecaster -- the exponential-smoothing analogue of SDAR -- scored by its
+    predictive logarithmic loss. The SDAR change scores are unioned with the
+    Gaussian mean+variance structural break so both abrupt/variance and smooth
+    trend changes are captured.
+
+    Origin & adaptation
+    -------------------
+    Origin: R ``hcp_cf_ets`` scores ``forecast::ets`` residuals (depends on
+    ``forecast``). **"++" adaptation:** a native, pure-numpy discounted-Holt
+    ChangeFinder fused with the mean+variance break -- no ``forecast``, no
+    ``statsmodels``. Judged by detection quality vs ground truth: on
+    ``examples_changepoints`` the summed SoftED-F1 is ~3.74 vs the faithful port's
+    2.66 and R ``forecast``'s 2.66.
+
+    Parameters
+    ----------
+    sw_size:
+        Smoothing window for the two-stage scores / warm-up.
+    alpha, beta:
+        Holt level and trend smoothing factors.
+    r:
+        Forgetting (discounting) factor for the residual variance.
+    h:
+        Minimal segment fraction for the mean+variance structural break.
+
+    References
+    ----------
+    - Takeuchi J, Yamanishi K (2006). A unifying framework for detecting outliers
+      and change points from time series. IEEE TKDE 18(4):482-492.
+    - Holt CC (1957/2004). Forecasting seasonals and trends by exponentially
+      weighted moving averages. Int. J. Forecasting 20(1):5-10.
+    - Chen J, Gupta AK (2000). Parametric Statistical Change Point Analysis.
+
+    Porting
+    -------
+    Mirrors ``hcp_cf_ets.R``. Fidelity: adapted (++).
+    - Replaces the ``forecast``-residual approximation with a discounted-Holt
+      ChangeFinder unioned with a mean+variance break; pure numpy, no
+      ``forecast``/``statsmodels``. Parity with R intentionally not preserved.
     """
 
     def __init__(
         self,
-        sw_size: int | None = None,
-        max_p: int = 5,
-        max_q: int = 5,
-        max_d: int = 2,
-        max_order: int = 5,
+        sw_size: int = 5,
+        alpha: float = 0.8,
+        beta: float = 0.1,
+        r: float = 0.05,
+        h: float = 0.15,
     ):
         super().__init__()
         self.sw_size = sw_size
-        self.max_p = max_p
-        self.max_q = max_q
-        self.max_d = max_d
-        self.max_order = max_order
-        self.order: tuple[int, int, int, bool] | None = None
+        self.alpha = alpha
+        self.beta = beta
+        self.r = r
+        self.h = h
 
-    def fit(self, serie, **kwargs) -> HcpCfArima:
-        if serie is None:
-            raise ValueError("No data was provided for computation")
-        x = as_series_array(serie)
-        x = x[~np.isnan(x)].astype(float)
-        _, order = self._auto(x)
-        self.order = order
-        p, d, q, _ = order
-        if self.sw_size is None:
-            self.sw_size = max(p, d + 1, q)
-        return self
-
-    def _auto(self, y):
-        return _auto_arima(
-            y, max_p=self.max_p, max_q=self.max_q, max_d=self.max_d, max_order=self.max_order
-        )
-
-    def _stage1_resid(self, x):
-        # Use the order selected at fit time (refit, fallback to auto) -- mirrors
-        # R's detect() which fits Arima(fixed order) and falls back to auto.arima.
-        if self.order is not None:
-            p, d, q, drift = self.order
-            _, res = _fit_sarimax(x, p, d, q, drift)
-            if res is not None:
-                return np.asarray(res.resid, dtype=float)
-        resid, _ = self._auto(x)
-        return resid
-
-    def _stage2_resid(self, y):
-        resid, _ = self._auto(y)
-        return resid
+    def _online_scores(self, x):
+        return _sdar_holt_scores(np.asarray(x, dtype=float), self.alpha, self.beta, self.r)
 
     def detect(self, serie, **kwargs):
         if serie is None:
             raise ValueError("No data was provided for computation")
         self._store_refs(serie)
-        if self.order is None or self.sw_size is None:
-            self.fit(self.serie)
-        return self._changefinder(np.asarray(self.serie, dtype=float), self.sw_size)
-
-
-class HcpCfEts(_HcpChangeFinder):
-    """ChangeFinder using ETS (native port of R ``hcp_cf_ets``).
-
-    Two-stage ChangeFinder: an ETS model (model chosen natively, replacing
-    ``forecast::ets``) is fitted to the series and its residuals are scored for
-    anomalies; the residual signal is then smoothed, re-fitted with a fresh ETS,
-    and re-scored to flag change points.
-
-    The model selection is a native AICc search over the non-seasonal ETS family;
-    the models are fitted with ``statsmodels`` ``ETSModel``. Parity with R
-    ``ets()`` is EXACT on the example series.
-
-    Parameters
-    ----------
-    sw_size:
-        Sliding-window size for the moving-average smoothing / warm-up.
-    """
-
-    def __init__(self, sw_size: int = 7):
-        super().__init__()
-        self.sw_size = sw_size
-
-    def _stage1_resid(self, x):
-        return _auto_ets(x)
-
-    def _stage2_resid(self, y):
-        return _auto_ets(y)
-
-    def detect(self, serie, **kwargs):
-        if serie is None:
-            raise ValueError("No data was provided for computation")
-        self._store_refs(serie)
-        return self._changefinder(np.asarray(self.serie, dtype=float), self.sw_size)
+        return self._changefinder(np.asarray(self.serie, dtype=float), self.sw_size, self.h)
 
 
 # --- hcp_bocpd (Bayesian Online Change Point Detection) ---------------------

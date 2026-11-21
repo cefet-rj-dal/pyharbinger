@@ -1,115 +1,124 @@
-"""Tests for the ChangeFinder-forecast detectors (cf_arima, cf_ets).
+"""Tests for the ChangeFinder detectors (cf_arima, cf_ets) -- the "++" re-engineering.
 
-These are native re-implementations that replace R's ``forecast`` dependency
-(``auto.arima`` / ``ets``) -- the back-implementation initiative's P2
-"auto-selection that breaks parity" case. Models are fitted with ``statsmodels``
-but the order/model selection is ours, so parity is measured against the R
-harbinger package on ``examples_changepoints`` and gated by the "small
-difference" check:
+``HcpCfArima`` / ``HcpCfEts`` were faithful native reimplementations that scored
+``statsmodels`` ARIMA/ETS residuals (replacing R's ``forecast`` auto-selection).
+They were then **re-engineered into "++" versions**: a native, pure-numpy **robust
+ChangeFinder** that fuses the canonical two-stage online **SDAR** surprise score
+(Takeuchi & Yamanishi 2006) with a Gaussian **mean+variance structural break**
+(shared with chow/gft). ``HcpCfArima`` uses an autoregressive SDAR predictor;
+``HcpCfEts`` a discounted Holt predictor. No ``forecast`` and no ``statsmodels``.
 
-* ``HcpCfEts`` matches R ``ets()`` EXACTLY on all 7 series.
-* ``HcpCfArima`` matches R's integration order ``d`` on all 7 series and matches
-  detections exactly on the well-conditioned series (``simple``, ``complex``);
-  the ``(p, q)`` stepwise selection diverges from ``forecast`` elsewhere
-  (statsmodels full-ML AICc vs ``forecast`` CSS/ML + stepwise path) -- the
-  documented tolerance, consistent with PELT / joinpoint / ELM.
+Because this deliberately diverges, the gate is detection quality vs the ground
+truth (SoftED-F1), which must beat the R reference. See
+``develop/benchmark_backimpl.py``.
 """
 from __future__ import annotations
 
+import numpy as np
 import pytest
 
-from pyharbinger import HcpCfArima, HcpCfEts, datasets
-from pyharbinger.changepoint import _kpss_ndiffs
+from pyharbinger import HarEvalSoft, HcpCfArima, HcpCfEts, datasets
+from pyharbinger.changepoint import _sdar_ar_scores, _sdar_holt_scores
 
 CP = datasets.examples_changepoints()
 
 
 def _cps(detection):
-    """0-based indices of detected change points (the detection ``idx`` column)."""
-    return detection.loc[detection["event"], "idx"].tolist()
+    return [int(i) for i in np.where(detection["event"].to_numpy())[0]]
 
 
-# --- HcpCfEts: EXACT R parity on all 7 series --------------------------------
+def _softed_total(cls) -> float:
+    total = 0.0
+    for df in CP.values():
+        gt = df["event"].to_numpy(dtype=bool)
+        det = cls().detect(df["serie"].to_numpy(dtype=float))["event"].to_numpy(dtype=bool)
+        f1 = HarEvalSoft(sw_size=15).evaluate(det, gt)["F1"]
+        total += 0.0 if (f1 is None or np.isnan(f1)) else float(f1)
+    return total
 
-ETS_REFERENCE = {
-    "simple": [50],
-    "sinusoidal": [],
-    "incremental": [13, 50, 103, 113, 150],
-    "abrupt": [13, 100, 109, 136, 194],
-    "volatility": [136, 149, 160, 173, 192, 194],
-    "increasing_amplitude": [199, 699],
-    "complex": [200],
+
+# --- Action-1++ gate: the ++ version must beat the R reference ----------------
+
+# Summed SoftED-F1 of the reference R ``forecast`` detections over the 7 series.
+R_REF_TOTAL = {"cf_arima": 2.918, "cf_ets": 2.662}
+
+
+def test_cf_arima_beats_r_reference():
+    assert _softed_total(HcpCfArima) > R_REF_TOTAL["cf_arima"]
+
+
+def test_cf_ets_beats_r_reference():
+    assert _softed_total(HcpCfEts) > R_REF_TOTAL["cf_ets"]
+
+
+# --- Regression anchors (current ++ detections, 0-based) ---------------------
+
+ARIMA_EXPECTED = {
+    "simple": [48],
+    "sinusoidal": [49],
+    "incremental": [85, 145],
+    "abrupt": [99, 100, 102, 195],
+    "volatility": [103, 122, 126, 195],
+    "increasing_amplitude": [199, 204, 501, 504, 699, 704],
+    "complex": [101, 199, 200],
+}
+ETS_EXPECTED = {
+    "simple": [48],
+    "sinusoidal": [49],
+    "incremental": [85],
+    "abrupt": [99, 106, 195],
+    "volatility": [103, 122, 195],
+    "increasing_amplitude": [199, 201, 204, 501, 504, 507, 699, 700, 704],
+    "complex": [109, 114, 199, 200, 205],
 }
 
 
-@pytest.mark.parametrize(("name", "expected"), list(ETS_REFERENCE.items()))
-def test_cf_ets_matches_r(name, expected):
-    det = HcpCfEts().detect(CP[name]["serie"].to_numpy(dtype=float))
-    assert _cps(det) == expected
+@pytest.mark.parametrize(("name", "expected"), list(ARIMA_EXPECTED.items()))
+def test_cf_arima_detections(name, expected):
+    assert _cps(HcpCfArima().detect(CP[name]["serie"].to_numpy(dtype=float))) == expected
 
 
-# --- HcpCfArima: integration order d matches R ndiffs on all 7 series --------
-
-# R forecast::ndiffs(test="kpss") on each example series.
-D_REFERENCE = {
-    "simple": 2,
-    "sinusoidal": 2,
-    "incremental": 1,
-    "abrupt": 1,
-    "volatility": 0,
-    "increasing_amplitude": 0,
-    "complex": 1,
-}
+@pytest.mark.parametrize(("name", "expected"), list(ETS_EXPECTED.items()))
+def test_cf_ets_detections(name, expected):
+    assert _cps(HcpCfEts().detect(CP[name]["serie"].to_numpy(dtype=float))) == expected
 
 
-@pytest.mark.parametrize(("name", "expected"), list(D_REFERENCE.items()))
-def test_cf_arima_ndiffs_matches_r(name, expected):
-    assert _kpss_ndiffs(CP[name]["serie"].to_numpy(dtype=float)) == expected
+# --- SDAR engine properties ---------------------------------------------------
 
 
-# --- HcpCfArima: EXACT R parity on the well-conditioned series ----------------
+def test_sdar_ar_spikes_at_abrupt_change():
+    # The AR log-loss score should surge right after an abrupt mean shift.
+    rng = np.random.default_rng(0)
+    x = np.concatenate([rng.normal(0, 0.3, 80), rng.normal(6, 0.3, 80)])
+    sc = _sdar_ar_scores(x, r=0.1, order=2)
+    assert np.argmax(sc) >= 80  # peak is at/after the change, not before
+    assert sc[:2].sum() == 0.0  # the first ``order`` (warm-up) positions score zero
 
-ARIMA_REFERENCE = {
-    "simple": ([50], (0, 2, 0, False)),
-    "complex": ([200], (2, 1, 2, False)),
-}
+
+def test_sdar_holt_scores_length_and_warmup():
+    x = CP["abrupt"]["serie"].to_numpy(dtype=float)
+    sc = _sdar_holt_scores(x, alpha=0.8, beta=0.1, r=0.05)
+    assert len(sc) == len(x)
+    assert np.all(np.isfinite(sc))
 
 
-@pytest.mark.parametrize(("name", "expected"), list(ARIMA_REFERENCE.items()))
-def test_cf_arima_matches_r_well_conditioned(name, expected):
-    expected_cps, expected_order = expected
-    model = HcpCfArima()
-    model.fit(CP[name]["serie"].to_numpy(dtype=float))
-    det = model.detect(CP[name]["serie"].to_numpy(dtype=float))
-    assert _cps(det) == expected_cps
-    assert model.order == expected_order
+def test_cf_arima_order_param_wired():
+    s = CP["volatility"]["serie"].to_numpy(dtype=float)
+    model = HcpCfArima(order=3)
+    assert model.order == 3
+    # a higher AR order changes the surprise scores -> generally a different result
+    assert _cps(model.detect(s)) != _cps(HcpCfArima(order=1).detect(s))
 
 
 # --- structure / API ---------------------------------------------------------
 
 
-def test_cf_arima_detect_without_fit_autoselects():
-    # detect() should auto-fit when fit() was not called first.
-    model = HcpCfArima()
-    det = model.detect(CP["simple"]["serie"].to_numpy(dtype=float))
-    assert model.order is not None
-    assert model.sw_size is not None
-    assert list(det.columns) == ["idx", "event", "type"]
-    assert det["event"].dtype == bool
-
-
-def test_cf_arima_sw_size_from_order():
-    model = HcpCfArima()
-    model.fit(CP["simple"]["serie"].to_numpy(dtype=float))
-    p, d, q, _ = model.order
-    assert model.sw_size == max(p, d + 1, q)
-
-
-def test_cf_ets_detect_structure():
-    det = HcpCfEts().detect(CP["sinusoidal"]["serie"].to_numpy(dtype=float))
-    n = len(CP["sinusoidal"])
-    assert len(det) == n
-    assert set(det["type"].unique()) <= {"", "changepoint"}
+def test_cf_detect_structure():
+    for cls in (HcpCfArima, HcpCfEts):
+        det = cls().detect(CP["abrupt"]["serie"].to_numpy(dtype=float))
+        assert list(det.columns) == ["idx", "event", "type"]
+        assert det["event"].dtype == bool
+        assert set(det["type"].unique()) <= {"", "anomaly", "changepoint"}
 
 
 def test_cf_none_input_raises():
@@ -117,5 +126,9 @@ def test_cf_none_input_raises():
         HcpCfArima().detect(None)
     with pytest.raises(ValueError, match="No data"):
         HcpCfEts().detect(None)
-    with pytest.raises(ValueError, match="No data"):
-        HcpCfArima().fit(None)
+
+
+def test_cf_fit_is_chainable():
+    # fit is a no-op that returns self (detect is self-contained).
+    model = HcpCfArima()
+    assert model.fit(CP["simple"]["serie"].to_numpy(dtype=float)) is model
