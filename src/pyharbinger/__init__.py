@@ -24,6 +24,8 @@ from .changepoint import (
     HcpAmoc,
     HcpBinseg,
     HcpCfLr,
+    HcpChow,
+    HcpGft,
     HcpJoinpoint,
     HcpKswin,
     HcpPageHinkley,
@@ -51,7 +53,7 @@ from .utils import (
     mas,
 )
 
-__version__ = "0.4.0"
+__version__ = "0.4.1"
 
 __all__ = [
     "HancMl",
@@ -70,6 +72,8 @@ __all__ = [
     "HcpAmoc",
     "HcpBinseg",
     "HcpCfLr",
+    "HcpChow",
+    "HcpGft",
     "HcpJoinpoint",
     "HcpKswin",
     "HcpPageHinkley",

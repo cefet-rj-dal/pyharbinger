@@ -122,3 +122,33 @@ for name, det_model in [
 > piecewise-linear series the segment residuals collapse to round-off, so the
 > model selection is numerically ill-conditioned and the exact break positions
 > may differ from R (the dominant change point is still recovered).
+
+## Structural-change detectors (native strucchange replacement)
+
+`HcpChow` and `HcpGft` detect **structural breaks** in the linear trend
+`y ~ t`. They are **native re-implementations** that replace R's dependency on
+the `strucchange` package (part of the back-implementation initiative): a
+prefix-sum OLS residual sum of squares, the Bai & Perron dynamic program for
+multiple breaks, and a Gaussian BIC reverse-engineered from `strucchange`.
+
+* `HcpChow` — the single most significant break via the sup-F (Chow) statistic.
+* `HcpGft` — multiple breaks via the Bai & Perron dynamic program, with the
+  number of breaks chosen by BIC.
+
+
+```python
+from pyharbinger import HcpChow, HcpGft
+
+for name, det_model in [("chow", HcpChow()), ("gft", HcpGft())]:
+    det = det_model.detect(serie)
+    print(f"{name:5s} change points at: {det.index[det['event']].tolist()}")
+```
+
+    chow  change points at: [99]
+    gft   change points at: [99, 148]
+    
+
+> **Parity note.** `HcpGft` matches R exactly on the well-conditioned example
+> series and `HcpChow` on 6 of 7; the remaining `simple` (ramp) and `sinusoidal`
+> cases are ties — segmentations with an identical fit objective, so R and the
+> native implementation pick equally optimal but different positions.

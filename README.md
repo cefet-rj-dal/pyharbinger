@@ -58,7 +58,7 @@ Every detector extends `Harbinger` and returns a detection table with columns
 | **Core** | `Harbinger` (base contract), deviation / filter / candidate-selection utilities |
 | **Evaluation** | `HarEval` (hard), `HarEvalSoft` (SoftED, soft matching via the Hungarian algorithm) |
 | **Anomaly** | `HanrMl` (forecasting residuals, wraps a pytspredit regressor), `HanrFft`, `HanrFftAmoc`, `HanrFftBinseg`, `HanrFftAmocCusum`, `HanrFftBinsegCusum`, `HanrHistogram`, `HanrFbiad` |
-| **Change point** | `HcpAmoc`, `HcpBinseg`, `HcpPelt` (via `ruptures`), `HcpKswin`, `HcpPageHinkley`, `HcpCfLr`, `HcpScp`, `HcpJoinpoint` |
+| **Change point** | `HcpAmoc`, `HcpBinseg`, `HcpPelt` (via `ruptures`), `HcpKswin`, `HcpPageHinkley`, `HcpCfLr`, `HcpScp`, `HcpJoinpoint`, `HcpChow`, `HcpGft` (native structural change) |
 | **Clustering** | `HanctKmeans` (anomalies / discords) |
 | **Classification** | `HancMl` (supervised; wraps a pydaltoolbox classifier) |
 | **Multivariate** | `HmuPca` (PCA reconstruction error) |
@@ -104,6 +104,11 @@ documented:
   perfectly piecewise-linear series its segment residuals collapse to round-off,
   so the exact break positions are numerically ill-conditioned (the dominant
   change point is still recovered).
+- `HcpChow` and `HcpGft` are **native re-implementations** of R's `strucchange`
+  backend (Bai & Perron dynamic program + a reverse-engineered Gaussian BIC).
+  `HcpGft` matches R exactly on the well-conditioned series and `HcpChow` on 6 of
+  7; the remaining `simple` (ramp) and `sinusoidal` cases are ties with an
+  identical fit objective, not disagreements.
 
 ## Related DAL projects
 

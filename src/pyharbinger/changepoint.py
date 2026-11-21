@@ -35,6 +35,8 @@ __all__ = [
     "HcpAmoc",
     "HcpBinseg",
     "HcpCfLr",
+    "HcpChow",
+    "HcpGft",
     "HcpJoinpoint",
     "HcpKswin",
     "HcpPageHinkley",
@@ -565,4 +567,174 @@ class HcpJoinpoint(Harbinger):
             c = round(raw)
             if 1 <= c <= n:
                 cp[c - 1] = True
+        return self._restore_refs(change_points=cp)
+
+
+# --- hcp_chow / hcp_gft (structural change, native Bai-Perron) ---------------
+#
+# These are NATIVE re-implementations that replace R's dependency on the
+# ``strucchange`` package (back-implementation initiative): a prefix-sum OLS
+# residual-sum-of-squares, the Bai & Perron dynamic program for multiple breaks,
+# and the Gaussian BIC selection reverse-engineered from ``strucchange``
+# (``n*(log(2*pi)+1+log(RSS/n)) + log(n)*((m+1)*k + m + 1)``, k = 2).
+
+
+def _rss_prefix(y):
+    """Return ``rss(i, j)`` (O(1) OLS ``y~x`` RSS of the 1-based segment i..j) and n.
+
+    Uses prefix sums of x, y, x^2, y^2, xy so the Bai-Perron DP is O(n^2).
+    """
+    y = np.asarray(y, dtype=float)
+    n = len(y)
+    x = np.arange(1, n + 1, dtype=float)
+    sx = np.concatenate(([0.0], np.cumsum(x)))
+    sy = np.concatenate(([0.0], np.cumsum(y)))
+    sxx = np.concatenate(([0.0], np.cumsum(x * x)))
+    syy = np.concatenate(([0.0], np.cumsum(y * y)))
+    sxy = np.concatenate(([0.0], np.cumsum(x * y)))
+
+    def rss(i: int, j: int) -> float:
+        m = j - i + 1
+        if m <= 0:
+            return 0.0
+        a = sx[j] - sx[i - 1]
+        b = sy[j] - sy[i - 1]
+        sxx_c = (sxx[j] - sxx[i - 1]) - a * a / m
+        syy_c = (syy[j] - syy[i - 1]) - b * b / m
+        sxy_c = (sxy[j] - sxy[i - 1]) - a * b / m
+        r = syy_c if sxx_c <= 0 else syy_c - sxy_c * sxy_c / sxx_c
+        return max(float(r), 0.0)
+
+    return rss, n
+
+
+def _structural_bic(rss_m: float, n: int, m: int, k: int = 2) -> float:
+    r = max(rss_m, 1e-300)
+    return float(
+        n * (np.log(2 * np.pi) + 1 + np.log(r / n)) + np.log(n) * ((m + 1) * k + m + 1)
+    )
+
+
+def _bai_perron_breakpoints(y, h_frac: float = 0.15) -> list[int]:
+    """Bai & Perron optimal breakpoints with BIC-selected count (1-based)."""
+    rss, n = _rss_prefix(y)
+    h = int(np.floor(n * h_frac))
+    if h < 1:
+        return []
+    max_breaks = n // h - 1
+    if max_breaks < 1:
+        return []
+
+    opt = [np.full(n + 1, np.inf) for _ in range(max_breaks + 1)]
+    prev = [np.full(n + 1, -1, dtype=int) for _ in range(max_breaks + 1)]
+    for j in range(h, n + 1):
+        opt[0][j] = rss(1, j)
+    for m in range(1, max_breaks + 1):
+        for j in range((m + 1) * h, n + 1):
+            best = np.inf
+            best_b = -1
+            for b in range(m * h, j - h + 1):
+                prev_rss = opt[m - 1][b]
+                if not np.isfinite(prev_rss):
+                    continue
+                value = prev_rss + rss(b + 1, j)
+                if value < best:
+                    best = value
+                    best_b = b
+            opt[m][j] = best
+            prev[m][j] = best_b
+
+    best_m = 0
+    best_bic = _structural_bic(opt[0][n], n, 0)
+    for m in range(1, max_breaks + 1):
+        if not np.isfinite(opt[m][n]):
+            continue
+        candidate = _structural_bic(opt[m][n], n, m)
+        if candidate < best_bic:
+            best_bic = candidate
+            best_m = m
+
+    cps: list[int] = []
+    j, m = n, best_m
+    while m > 0:
+        b = int(prev[m][j])
+        cps.append(b)
+        j, m = b, m - 1
+    return sorted(cps)
+
+
+def _chow_breakpoint(y, h_frac: float = 0.15) -> int | None:
+    """Single sup-F (Chow) breakpoint over the trimmed range (1-based) or None."""
+    rss, n = _rss_prefix(y)
+    h = int(np.floor(n * h_frac))
+    k = 2
+    if h < 1 or h > n - h or n - 2 * k <= 0:
+        return None
+    rss0 = rss(1, n)
+    best_i = None
+    best_f = -np.inf
+    for i in range(h, n - h + 1):
+        r = rss(1, i) + rss(i + 1, n)
+        f = np.inf if r <= 0 else ((rss0 - r) / k) / (r / (n - 2 * k))
+        if f > best_f:
+            best_f = f
+            best_i = i
+    return best_i
+
+
+class HcpChow(Harbinger):
+    """Chow structural-break detector (native port of R ``hcp_chow``).
+
+    Finds the single most significant structural break in the linear model
+    ``y ~ t`` via the sup-F (Chow) statistic over a trimmed range. Native
+    re-implementation that replaces R's ``strucchange`` dependency.
+
+    Parameters
+    ----------
+    h:
+        Minimal segment size as a fraction of the series length (trimming).
+    """
+
+    def __init__(self, h: float = 0.15):
+        super().__init__()
+        self.h = h
+
+    def detect(self, serie, **kwargs):
+        if serie is None:
+            raise ValueError("No data was provided for computation")
+        self._store_refs(serie)
+        n = len(self.serie)
+        cp = np.zeros(n, dtype=bool)
+        bp = _chow_breakpoint(self.serie, self.h)
+        if bp is not None:
+            cp[bp - 1] = True
+        return self._restore_refs(change_points=cp)
+
+
+class HcpGft(Harbinger):
+    """Generalized fluctuation / structural-change detector (port of R ``hcp_gft``).
+
+    Finds multiple structural breaks in ``y ~ t`` by the Bai & Perron dynamic
+    program, with the number of breaks chosen by BIC. Native re-implementation
+    that replaces R's ``strucchange`` dependency.
+
+    Parameters
+    ----------
+    h:
+        Minimal segment size as a fraction of the series length.
+    """
+
+    def __init__(self, h: float = 0.15):
+        super().__init__()
+        self.h = h
+
+    def detect(self, serie, **kwargs):
+        if serie is None:
+            raise ValueError("No data was provided for computation")
+        self._store_refs(serie)
+        n = len(self.serie)
+        cp = np.zeros(n, dtype=bool)
+        for bp in _bai_perron_breakpoints(self.serie, self.h):
+            if 1 <= bp <= n:
+                cp[bp - 1] = True
         return self._restore_refs(change_points=cp)
