@@ -58,7 +58,7 @@ Every detector extends `Harbinger` and returns a detection table with columns
 | **Core** | `Harbinger` (base contract), deviation / filter / candidate-selection utilities |
 | **Evaluation** | `HarEval` (hard), `HarEvalSoft` (SoftED, soft matching via the Hungarian algorithm) |
 | **Anomaly** | `HanrMl` (forecasting residuals, wraps a pytspredit regressor), `HanrFft`, `HanrFftAmoc`, `HanrFftBinseg`, `HanrFftAmocCusum`, `HanrFftBinsegCusum`, `HanrHistogram`, `HanrFbiad` |
-| **Change point** | `HcpAmoc`, `HcpBinseg`, `HcpPelt` (via `ruptures`), `HcpKswin`, `HcpPageHinkley` |
+| **Change point** | `HcpAmoc`, `HcpBinseg`, `HcpPelt` (via `ruptures`), `HcpKswin`, `HcpPageHinkley`, `HcpCfLr`, `HcpScp`, `HcpJoinpoint` |
 | **Clustering** | `HanctKmeans` (anomalies / discords) |
 | **Classification** | `HancMl` (supervised; wraps a pydaltoolbox classifier) |
 | **Multivariate** | `HmuPca` (PCA reconstruction error) |
@@ -99,6 +99,11 @@ documented:
   degeneracy in R's `hmu_pca`, which kept *all* principal components; both now
   reconstruct from a reduced set (90% variance by default, capped at
   `n_features - 1`).
+- `HcpCfLr`, `HcpScp` and the FFT-hybrid anomaly detectors match R exactly on the
+  example series. `HcpJoinpoint` matches R on well-conditioned series; on a
+  perfectly piecewise-linear series its segment residuals collapse to round-off,
+  so the exact break positions are numerically ill-conditioned (the dominant
+  change point is still recovered).
 
 ## Related DAL projects
 

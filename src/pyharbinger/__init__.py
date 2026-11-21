@@ -20,7 +20,16 @@ from .anomaly import (
     HanrHistogram,
     HanrMl,
 )
-from .changepoint import HcpAmoc, HcpBinseg, HcpKswin, HcpPageHinkley, HcpPelt
+from .changepoint import (
+    HcpAmoc,
+    HcpBinseg,
+    HcpCfLr,
+    HcpJoinpoint,
+    HcpKswin,
+    HcpPageHinkley,
+    HcpPelt,
+    HcpScp,
+)
 from .classification import HancMl
 from .clustering import HanctKmeans
 from .evaluation import HarEval, HarEvalSoft
@@ -42,7 +51,7 @@ from .utils import (
     mas,
 )
 
-__version__ = "0.3.0"
+__version__ = "0.4.0"
 
 __all__ = [
     "HancMl",
@@ -60,9 +69,12 @@ __all__ = [
     "Harbinger",
     "HcpAmoc",
     "HcpBinseg",
+    "HcpCfLr",
+    "HcpJoinpoint",
     "HcpKswin",
     "HcpPageHinkley",
     "HcpPelt",
+    "HcpScp",
     "HmuPca",
     "datasets",
     "har_candidate_selection_firstgroup",

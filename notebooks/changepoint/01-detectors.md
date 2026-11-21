@@ -74,3 +74,31 @@ Uses a random subsample, so fix `random_state` for reproducibility.
 det = HcpKswin(random_state=0).detect(serie)
 print("change points at:", det.index[det["event"]].tolist())
 ```
+
+## ChangeFinder and regression-based detectors
+
+These additional detectors are **native** (no `ruptures`): they are faithful
+ports that match R exactly on the example series.
+
+* `HcpCfLr` — ChangeFinder with a two-stage linear-regression residual model.
+* `HcpScp` — the "seminal" change point: compares a whole-window regression
+  against two half-window regressions split around each window's centre.
+* `HcpJoinpoint` — Joinpoint Regression++ (dynamic programming + weighted BIC).
+
+```python
+from pyharbinger import HcpCfLr, HcpScp, HcpJoinpoint
+
+for name, det_model in [
+    ("cf_lr", HcpCfLr()),
+    ("scp", HcpScp()),
+    ("joinpoint", HcpJoinpoint()),
+]:
+    det = det_model.detect(serie)
+    print(f"{name:10s} change points at: {det.index[det['event']].tolist()}")
+```
+
+> **Parity note.** `HcpCfLr` and `HcpScp` match R exactly on every example
+> series. `HcpJoinpoint` matches R on well-conditioned series; on a perfectly
+> piecewise-linear series the segment residuals collapse to round-off, so the
+> model selection is numerically ill-conditioned and the exact break positions
+> may differ from R (the dominant change point is still recovered).

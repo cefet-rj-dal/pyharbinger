@@ -23,12 +23,38 @@ Two groups are provided:
 from __future__ import annotations
 
 import numpy as np
+import pandas as pd
 import ruptures as rpt
+from pytspredit import ts_data
 from scipy import stats
 
 from .harbinger import Harbinger, as_series_array
+from .utils import har_candidate_selection_highgroup, har_filter_boxplot, mas
 
-__all__ = ["HcpAmoc", "HcpBinseg", "HcpKswin", "HcpPageHinkley", "HcpPelt"]
+__all__ = [
+    "HcpAmoc",
+    "HcpBinseg",
+    "HcpCfLr",
+    "HcpJoinpoint",
+    "HcpKswin",
+    "HcpPageHinkley",
+    "HcpPelt",
+    "HcpScp",
+]
+
+
+def _detrend_residuals(y: np.ndarray) -> np.ndarray:
+    """Residuals of an OLS fit ``y ~ t`` with ``t = 1..len(y)`` (R ``lm(x ~ t)``)."""
+    y = np.asarray(y, dtype=float)
+    n = len(y)
+    t = np.arange(1, n + 1, dtype=float)
+    t_mean = t.mean()
+    denom = float(((t - t_mean) ** 2).sum())
+    if denom == 0:
+        return y - y.mean()
+    slope = float(((t - t_mean) * (y - y.mean())).sum() / denom)
+    intercept = float(y.mean() - slope * t_mean)
+    return y - (intercept + slope * t)
 
 
 class _RupturesChangePoint(Harbinger):
@@ -190,7 +216,6 @@ class HcpKswin(Harbinger):
     def _build_cp_table(n, result):
         type_arr = np.array([""] * n, dtype=object)
         type_arr[result] = "changepoint"
-        import pandas as pd
 
         return pd.DataFrame({"idx": np.arange(n), "event": result, "type": type_arr})
 
@@ -255,6 +280,289 @@ class HcpPageHinkley(Harbinger):
 
         type_arr = np.array([""] * n, dtype=object)
         type_arr[result] = "changepoint"
-        import pandas as pd
 
         return pd.DataFrame({"idx": np.arange(n), "event": result, "type": type_arr})
+
+
+# --- hcp_cf_lr (ChangeFinder with linear regression) ------------------------
+
+
+class HcpCfLr(Harbinger):
+    """ChangeFinder using linear regression (Python port of R ``hcp_cf_lr``).
+
+    Two-stage ChangeFinder: a linear trend is fit to the series and the squared
+    residuals are scored for anomalies; the residual signal is then smoothed
+    (moving average), re-fit, and re-scored to flag change points.
+
+    Parameters
+    ----------
+    sw_size:
+        Sliding-window size for the moving-average smoothing / warm-up.
+    """
+
+    def __init__(self, sw_size: int = 30):
+        super().__init__()
+        self.sw_size = sw_size
+
+    def detect(self, serie, **kwargs):
+        if serie is None:
+            raise ValueError("No data was provided for computation")
+        self._store_refs(serie)
+        x = self.serie
+        n = len(x)
+        sw = self.sw_size
+
+        res = self.har_distance(_detrend_residuals(x))
+        outliers = self.har_outliers(res)
+        selection = self.har_outliers_check(outliers, res, x)
+        anomalies = np.asarray(selection.mask, dtype=bool).copy()
+        anomalies[:sw] = False
+
+        y = mas(res, sw)
+        u = self.har_distance(_detrend_residuals(y))
+        u = mas(u, sw)
+        cp_outliers = self.har_outliers(u)
+        cp_selection = self.har_outliers_check(cp_outliers, u, u)
+        cp = np.asarray(cp_selection.mask, dtype=bool).copy()
+        cp[:sw] = False
+        cp = np.concatenate([np.zeros(n - len(u), dtype=bool), cp])
+
+        return self._restore_refs(anomalies=anomalies, change_points=cp, res=res)
+
+
+# --- hcp_scp (seminal change point) -----------------------------------------
+
+
+class HcpScp(Harbinger):
+    """Seminal change point via windowed local regression (port of R ``hcp_scp``).
+
+    For each sliding window a linear model on the whole window is compared against
+    two linear models fitted on the two halves split around the window's central
+    (seminal) observation. The drop in mean deviation is the change score, scored
+    with the boxplot filter and high-group candidate selection.
+
+    Parameters
+    ----------
+    sw_size:
+        Sliding-window size.
+    """
+
+    def __init__(self, sw_size: int = 30):
+        super().__init__()
+        self.sw_size = sw_size
+        self.har_outliers = har_filter_boxplot
+        self.har_outliers_check = har_candidate_selection_highgroup
+
+    def _window_score(self, data: np.ndarray, offset: int) -> float:
+        err = float(np.mean(self.har_distance(_detrend_residuals(data))))
+        left = data[: offset - 1]
+        right = data[offset:]
+        res_ad = self.har_distance(
+            np.concatenate([_detrend_residuals(left), _detrend_residuals(right)])
+        )
+        err_ad = float(np.mean(res_ad))
+        return err - err_ad
+
+    def detect(self, serie, **kwargs):
+        if serie is None:
+            raise ValueError("No data was provided for computation")
+        self._store_refs(serie)
+        sw = self.sw_size
+
+        windows = ts_data(self.serie, sw)
+        windows = windows.to_numpy() if hasattr(windows, "to_numpy") else np.asarray(windows)
+        offset = round(sw / 2)
+
+        res = np.array([self._window_score(windows[i], offset) for i in range(windows.shape[0])])
+        values = windows[:, offset]
+
+        outliers = self.har_outliers(res)
+        selection = self.har_outliers_check(outliers, res, values)
+        cp = np.asarray(selection.mask, dtype=bool)
+
+        front = np.zeros(offset, dtype=bool)
+        back = np.zeros(sw - offset - 1, dtype=bool)
+        cp_full = np.concatenate([front, cp, back])
+        res_full = np.concatenate([np.zeros(offset), res, np.zeros(sw - offset - 1)])
+
+        return self._restore_refs(
+            change_points=cp_full, res=res_full, threshold=selection.threshold
+        )
+
+
+# --- hcp_joinpoint (Joinpoint Regression++) ---------------------------------
+
+
+def _segment_rss(y: np.ndarray, x: np.ndarray) -> float:
+    """Residual sum of squares of an OLS fit ``y ~ x`` over a segment.
+
+    Uses a QR least-squares solve (``numpy.linalg.lstsq``) to mirror R's ``lm``:
+    on a perfectly linear segment this leaves the same tiny (non-zero) round-off
+    residual R does, which matters for the ``log(RSS)`` term in the BIC selection.
+    """
+    y = np.asarray(y, dtype=float)
+    if len(y) < 2:
+        return np.inf
+    x = np.asarray(x, dtype=float)
+    design = np.column_stack([np.ones_like(x), x])
+    coef, *_ = np.linalg.lstsq(design, y, rcond=None)
+    resid = y - design @ coef
+    return float(resid @ resid)
+
+
+def _bic(rss: float, n: int, k: int, factor: int) -> float:
+    if not np.isfinite(rss) or rss <= 0:
+        return np.inf
+    p = factor * k + 2
+    return float(np.log(rss / n) + (p / n) * np.log(n))
+
+
+def _joinpoint_weight(y: np.ndarray, cps: list[int]) -> float:
+    if len(cps) == 0:
+        return 0.0
+    diffs = []
+    for tau in sorted(cps):
+        left = np.arange(1, tau)  # R seq_len(tau - 1)
+        right = np.arange(tau, len(y) + 1)  # R tau:length(y)
+        if len(left) < 3 or len(right) < 3:
+            continue
+        r1 = np.corrcoef(y[left - 1], left)[0, 1] ** 2
+        r2 = np.corrcoef(y[right - 1], right)[0, 1] ** 2
+        diffs.append(abs(r2 - r1))
+    if not diffs:
+        return 0.0
+    w = float(np.mean(diffs))
+    if not np.isfinite(w):
+        return 0.0
+    return min(max(w, 0.0), 1.0)
+
+
+class HcpJoinpoint(Harbinger):
+    """Joinpoint Regression++ change-point detector (port of R ``hcp_joinpoint``).
+
+    Searches for a globally optimal set of joinpoints with dynamic programming,
+    fits linear segments between candidate breaks, and selects the number of
+    joinpoints (0..``k_max``) by a weighted BIC (a blend of BIC and BIC3).
+
+    Parameters
+    ----------
+    min_between:
+        Minimum number of observations between consecutive joinpoints.
+    min_end:
+        Minimum number of observations in the first and last segments.
+    k_max:
+        Maximum number of joinpoints considered during model selection.
+    log_transform:
+        Whether to log-transform the (strictly positive) series before fitting.
+    """
+
+    def __init__(
+        self,
+        min_between: int = 2,
+        min_end: int = 2,
+        k_max: int = 5,
+        log_transform: bool = False,
+    ):
+        super().__init__()
+        if min_between < 1:
+            raise ValueError("min_between must be a positive number.")
+        if min_end < 1:
+            raise ValueError("min_end must be a positive number.")
+        if k_max < 0:
+            raise ValueError("k_max must be a non-negative number.")
+        self.min_between = int(min_between)
+        self.min_end = int(min_end)
+        self.k_max = int(k_max)
+        self.log_transform = bool(log_transform)
+        self.model: dict | None = None
+
+    def _max_jp(self, n: int) -> int:
+        if n < 2 * self.min_end:
+            raise ValueError("The series is too short for the requested segment constraints.")
+        max_possible = max(0, (n - 2 * self.min_end) // self.min_between)
+        return min(self.k_max, max_possible)
+
+    def _dp(self, y: np.ndarray, x: np.ndarray, max_jp: int):
+        n = len(y)
+        # 1-based indexing emulated with length n+1 arrays (index 0 unused).
+        dp_rss = [np.full(n + 1, np.inf) for _ in range(max_jp + 1)]
+        dp_cps: list[list] = [[None] * (n + 1) for _ in range(max_jp + 1)]
+
+        for j in range(1, n + 1):
+            if j >= self.min_end:
+                dp_rss[0][j] = _segment_rss(y[:j], x[:j])
+                dp_cps[0][j] = []
+
+        for k in range(1, max_jp + 1):
+            min_j = max(self.min_end + self.min_between, 2 * self.min_end)
+            for j in range(min_j, n + 1):
+                best_rss = np.inf
+                best_cps: list[int] = []
+                i_min = self.min_end + 1
+                i_max = j - self.min_end
+                if i_min > i_max:
+                    continue
+                for i in range(i_min, i_max + 1):
+                    if j - i + 1 < self.min_end:
+                        continue
+                    prev_cps = dp_cps[k - 1][i - 1]
+                    prev_rss = dp_rss[k - 1][i - 1]
+                    if prev_cps is None or not np.isfinite(prev_rss):
+                        continue
+                    if len(prev_cps) > 0 and (i - prev_cps[-1]) < self.min_between:
+                        continue
+                    seg_rss = _segment_rss(y[i - 1 : j], x[i - 1 : j])
+                    total = prev_rss + seg_rss
+                    if total < best_rss:
+                        best_rss = total
+                        best_cps = [*prev_cps, i]
+                dp_rss[k][j] = best_rss
+                dp_cps[k][j] = best_cps
+        return dp_rss, dp_cps
+
+    def fit(self, serie, **kwargs) -> HcpJoinpoint:
+        if serie is None:
+            raise ValueError("No data was provided.")
+        self._store_refs(serie)
+        y = np.asarray(self.serie, dtype=float)
+        n = len(y)
+        if n < 2 * self.min_end:
+            raise ValueError("The series is too short for the requested min_end value.")
+        if self.log_transform:
+            if np.any(y <= 0):
+                raise ValueError("log_transform=True requires strictly positive values.")
+            y = np.log(y)
+        x = np.arange(1, n + 1, dtype=float)
+
+        max_jp = self._max_jp(n)
+        dp_rss, dp_cps = self._dp(y, x, max_jp)
+
+        best_wbic = np.inf
+        best_cps: list[int] = []
+        for k in range(max_jp + 1):
+            cps = dp_cps[k][n] or []
+            rss = dp_rss[k][n]
+            bic = _bic(rss, n, k, factor=2)
+            bic3 = _bic(rss, n, k, factor=3)
+            w = _joinpoint_weight(y, cps)
+            wbic = (1 - w) * bic + w * bic3
+            if np.isfinite(wbic) and wbic < best_wbic:
+                best_wbic = wbic
+                best_cps = cps
+        if not np.isfinite(best_wbic):
+            raise ValueError("No valid joinpoint model could be fitted with the current constraints.")
+        self.model = {"cps": best_cps, "wbic": best_wbic}
+        return self
+
+    def detect(self, serie, **kwargs):
+        if serie is None:
+            raise ValueError("No data was provided.")
+        self._store_refs(serie)
+        self.fit(self.serie)
+        n = len(self.serie)
+        cp = np.zeros(n, dtype=bool)
+        for raw in self.model["cps"] if self.model else []:
+            c = round(raw)
+            if 1 <= c <= n:
+                cp[c - 1] = True
+        return self._restore_refs(change_points=cp)

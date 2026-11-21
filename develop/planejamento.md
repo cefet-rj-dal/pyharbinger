@@ -337,9 +337,12 @@ revisão do Eduardo, ff-merge (mesma cadência da v1).
   (`HanrFftAmoc/Binseg/AmocCusum/BinsegCusum`). ⚠️ **`HanrFftSma` tem BUG no R**
   (recycling: `serie - ts_sma` com comprimentos incompatíveis) → tratado à parte
   (fix no R + port, igual ao `hmu_pca`), decisão pendente com o Eduardo.
-- **0.4.0 — Change point estendido.** `HcpCfLr`, `HcpCfArima`, `HcpCfEts`, `HcpChow`,
-  `HcpGft`, `HcpJoinpoint`, `HcpScp`, `HcpBocpd` (nativo Adams&MacKay). (`HcpWaypoint`
-  saiu para o Ciclo 2 — torch.)
+- **0.4.0 — Change point estendido (nativos exatos).** `HcpCfLr`, `HcpScp`,
+  `HcpJoinpoint` (lógica pura lm/DP/correlação → paridade R exata). **Adiados para
+  0.4.1 (paridade sensível, refinar com Eduardo):** `HcpChow`/`HcpGft` (exigem portar
+  o Bai-Perron do `strucchange`), `HcpCfArima`/`HcpCfEts` (statsmodels ≠
+  `forecast::auto.arima`/`ets` → aproximado), `HcpBocpd` (nativo vs pacote `ocp`).
+  (`HcpWaypoint` segue no Ciclo 2 — torch.)
 - **0.5.0 — Simbólico (motif/discord nativo).** SAX/xSAX: `TransSax`, `TransXsax`,
   `HmoSax`, `HmoXsax`, `HdisSax`. Embarca dataset `examples_motifs`.
 - **0.6.0 — Ensembles + visualização.** `HarEnsemble`, `HarEnsembleFuzzy` (+`fuzzify`) +
@@ -420,3 +423,18 @@ Ordem/escopo **a combinar com o Eduardo** (ele refina este ciclo em detalhe):
   ruff limpo, 7 notebooks. **`HanrFftSma` ADIADO:** o R `hanr_fft_sma` tem bug de
   recycling (`serie - ts_sma`, lengths n vs n-window+1) + usa `spec.pgram`; decidir
   com o Eduardo entre corrigir o R (alinhar a MA com warm-up) ou portar o recycling.
+
+- **2026-11-20 — 0.4.0 IMPLEMENTADO** (branch `milestone-6-changepoints-extended`,
+  sai do branch 0.3.0). `changepoint.py`: `HcpCfLr` (ChangeFinder 2 estágios com
+  regressão linear + `mas`), `HcpScp` (seminal: regressão janela cheia vs duas
+  metades em torno do ponto central; boxplot + highgroup), `HcpJoinpoint`
+  (Joinpoint Regression++: DP + seleção WBIC = blend BIC/BIC3). **Paridade R:**
+  `HcpCfLr` e `HcpScp` batem EXATO nas 7 séries de `examples_changepoints`;
+  `HcpJoinpoint` bate EXATO em séries bem-condicionadas (sinusoidal 10,26,44,57,80),
+  mas em série perfeitamente linear-por-partes (`simple`) o RSS→0 e a seleção fica
+  mal-condicionada (roundoff) → posições-artefato diferem do R, mas o cp real (50) é
+  sempre recuperado. (`_segment_rss` usa `np.linalg.lstsq`/QR como o `lm` do R para
+  deixar o mesmo resíduo ~1e-27 e selecionar o mesmo k.) **Perf:** joinpoint é
+  O(n³·k) — lento em séries longas (increasing_amplitude n=1002); testes usam só as
+  curtas. 82 testes (+18), ruff limpo, 7 notebooks. **Adiados p/ 0.4.1:** chow, gft,
+  cf_arima, cf_ets, bocpd (paridade sensível — ver bullet do 0.4.0).
