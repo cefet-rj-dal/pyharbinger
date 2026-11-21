@@ -579,19 +579,54 @@ class HcpJoinpoint(Harbinger):
         return self._restore_refs(change_points=cp)
 
 
-# --- hcp_chow / hcp_gft (structural change, native Bai-Perron) ---------------
+# --- hcp_chow / hcp_gft (structural change, "++" re-engineering) --------------
 #
-# These are NATIVE re-implementations that replace R's dependency on the
-# ``strucchange`` package (back-implementation initiative): a prefix-sum OLS
-# residual-sum-of-squares, the Bai & Perron dynamic program for multiple breaks,
-# and the Gaussian BIC selection reverse-engineered from ``strucchange``
+# Origin: R ``hcp_chow`` / ``hcp_gft`` rely on the ``strucchange`` package --
+# ``Fstats`` (a homoskedastic Chow/sup-F test on the *mean* regression ``y~t``)
+# and ``breakpoints`` (the Bai & Perron least-squares dynamic program with a
+# Gaussian BIC). The 0.4.1 faithful port reproduced that: prefix-sum OLS RSS,
+# the Bai-Perron DP, and a reverse-engineered ``strucchange`` BIC
 # (``n*(log(2*pi)+1+log(RSS/n)) + log(n)*((m+1)*k + m + 1)``, k = 2).
+#
+# "++" ADAPTATION (this release): we generalise the *least-squares (mean-only)*
+# criterion to a **Gaussian mean-AND-variance segmentation cost**, so the
+# detectors also find scale/variance-regime changes that the original mean-shift
+# model is blind to (e.g. volatility / amplitude shifts). The segment cost is the
+# Gaussian maximum-likelihood deviance ``m * log(RSS_seg / m)`` (per-segment
+# variance), inspired by the normal mean+variance change-point segmentation of
+# Chen & Gupta and Killick et al. For the number of breaks, ``HcpGft`` adopts the
+# conservative LWZ information criterion (Liu, Wu & Zidek 1997) in place of plain
+# BIC, which curbs over-segmentation; ``HcpChow`` selects the single break that
+# maximises the mean+variance log-likelihood ratio (a scale-aware generalisation
+# of Chow's homoskedastic F-test, scanned over the unknown break à la Andrews).
+# The Bai-Perron DP inner loop is vectorised with numpy (prefix sums), keeping it
+# O(max_breaks * n) per candidate count rather than a triple Python loop.
+#
+# References (origin + inspiration for the ++):
+#   - Chow GC (1960). Tests of equality between sets of coefficients in two
+#     linear regressions. Econometrica 28(3):591-605.
+#   - Bai J, Perron P (1998). Estimating and testing linear models with multiple
+#     structural changes. Econometrica 66(1):47-78. (2003) J Appl Econometrics
+#     18:1-22 -- dynamic-programming computation of multiple breakpoints.
+#   - Zeileis A, Leisch F, Hornik K, Kleiber C (2002). strucchange: An R package
+#     for testing for structural change in linear regression models. JSS 7(2).
+#   - Andrews DWK (1993). Tests for parameter instability and structural change
+#     with unknown change point. Econometrica 61(4):821-856. (sup-type scan)
+#   - Liu J, Wu S, Zidek JV (1997). On segmented multivariate regression.
+#     Statistica Sinica 7:497-525. (LWZ information criterion)
+#   - Chen J, Gupta AK (2000). Parametric Statistical Change Point Analysis.
+#     Birkhauser. (Gaussian mean+variance change points)
+#   - Killick R, Fearnhead P, Eckley IA (2012). Optimal detection of
+#     changepoints with a linear computational cost. JASA 107(500):1590-1598.
 
 
-def _rss_prefix(y):
-    """Return ``rss(i, j)`` (O(1) OLS ``y~x`` RSS of the 1-based segment i..j) and n.
+def _mv_prefix(y):
+    """Prefix sums for O(1) OLS ``y~t`` RSS of 1-based segments, scalar + vectorised.
 
-    Uses prefix sums of x, y, x^2, y^2, xy so the Bai-Perron DP is O(n^2).
+    Returns ``(rss, rss_vec, n)`` where ``rss(i, j)`` is the residual sum of
+    squares of the trend fit on the segment ``i..j`` (1-based inclusive) and
+    ``rss_vec(i_arr, j)`` evaluates it for an array of left endpoints ``i`` at a
+    fixed right endpoint ``j`` (used to vectorise the Bai-Perron DP).
     """
     y = np.asarray(y, dtype=float)
     n = len(y)
@@ -614,94 +649,157 @@ def _rss_prefix(y):
         r = syy_c if sxx_c <= 0 else syy_c - sxy_c * sxy_c / sxx_c
         return max(float(r), 0.0)
 
-    return rss, n
+    def rss_vec(i_arr: np.ndarray, j: int) -> np.ndarray:
+        i_arr = np.asarray(i_arr, dtype=int)
+        m = j - i_arr + 1
+        a = sx[j] - sx[i_arr - 1]
+        b = sy[j] - sy[i_arr - 1]
+        sxx_c = (sxx[j] - sxx[i_arr - 1]) - a * a / m
+        syy_c = (syy[j] - syy[i_arr - 1]) - b * b / m
+        sxy_c = (sxy[j] - sxy[i_arr - 1]) - a * b / m
+        r = np.where(sxx_c <= 0, syy_c, syy_c - sxy_c * sxy_c / np.where(sxx_c <= 0, 1.0, sxx_c))
+        return np.maximum(r, 0.0)
+
+    return rss, rss_vec, n
 
 
-def _structural_bic(rss_m: float, n: int, m: int, k: int = 2) -> float:
-    r = max(rss_m, 1e-300)
-    return float(
-        n * (np.log(2 * np.pi) + 1 + np.log(r / n)) + np.log(n) * ((m + 1) * k + m + 1)
-    )
+def _mv_seg_cost(r, m):
+    """Gaussian mean+variance ML deviance of a segment: ``m * log(RSS/m)``."""
+    return m * np.log(np.maximum(r, 1e-12) / m)
 
 
-def _bai_perron_breakpoints(y, h_frac: float = 0.15) -> list[int]:
-    """Bai & Perron optimal breakpoints with BIC-selected count (1-based)."""
-    rss, n = _rss_prefix(y)
+def _break_penalty(n: int, m: int, kind: str, k: int = 2) -> float:
+    """Model-selection penalty for ``m`` breaks (``(m+1)`` segments).
+
+    Each segment has ``k`` trend parameters plus one variance; ``m`` break
+    locations are also counted. ``"lwz"`` is the conservative Liu-Wu-Zidek
+    criterion ``c * (ln n)^(2+d) * p`` (c=0.299, d=0.1); ``"bic"`` is ``ln(n)*p``.
+    """
+    p = (m + 1) * (k + 1) + m
+    if kind == "lwz":
+        return 0.299 * (np.log(n) ** 2.1) * p
+    return np.log(n) * p
+
+
+def _meanvar_breakpoints(y, h_frac: float = 0.15, penalty: str = "lwz") -> list[int]:
+    """Bai-Perron breakpoints under a Gaussian mean+variance cost (1-based).
+
+    Vectorised dynamic program minimising the total segment deviance
+    ``sum_s m_s*log(RSS_s/m_s)``; the number of breaks is chosen by the LWZ
+    (default) or BIC penalty. This is the "++" generalisation of
+    ``strucchange``'s least-squares ``breakpoints``.
+    """
+    rss, rss_vec, n = _mv_prefix(y)
     h = int(np.floor(n * h_frac))
     if h < 1:
         return []
-    max_breaks = n // h - 1
-    if max_breaks < 1:
+    max_m = n // h - 1
+    if max_m < 1:
         return []
 
-    opt = [np.full(n + 1, np.inf) for _ in range(max_breaks + 1)]
-    prev = [np.full(n + 1, -1, dtype=int) for _ in range(max_breaks + 1)]
+    opt = np.full((max_m + 1, n + 1), np.inf)
+    prev = np.full((max_m + 1, n + 1), -1, dtype=int)
     for j in range(h, n + 1):
-        opt[0][j] = rss(1, j)
-    for m in range(1, max_breaks + 1):
+        opt[0, j] = _mv_seg_cost(rss(1, j), j)
+    for m in range(1, max_m + 1):
         for j in range((m + 1) * h, n + 1):
-            best = np.inf
-            best_b = -1
-            for b in range(m * h, j - h + 1):
-                prev_rss = opt[m - 1][b]
-                if not np.isfinite(prev_rss):
-                    continue
-                value = prev_rss + rss(b + 1, j)
-                if value < best:
-                    best = value
-                    best_b = b
-            opt[m][j] = best
-            prev[m][j] = best_b
+            b = np.arange(m * h, j - h + 1)
+            prev_cost = opt[m - 1, b]
+            finite = np.isfinite(prev_cost)
+            if not finite.any():
+                continue
+            seg = _mv_seg_cost(rss_vec(b + 1, j), j - b)  # m_seg = j-(b+1)+1 = j-b
+            total = np.where(finite, prev_cost + seg, np.inf)
+            k = int(np.argmin(total))
+            opt[m, j] = total[k]
+            prev[m, j] = b[k]
 
     best_m = 0
-    best_bic = _structural_bic(opt[0][n], n, 0)
-    for m in range(1, max_breaks + 1):
-        if not np.isfinite(opt[m][n]):
+    best_crit = opt[0, n] + _break_penalty(n, 0, penalty)
+    for m in range(1, max_m + 1):
+        if not np.isfinite(opt[m, n]):
             continue
-        candidate = _structural_bic(opt[m][n], n, m)
-        if candidate < best_bic:
-            best_bic = candidate
-            best_m = m
+        crit = opt[m, n] + _break_penalty(n, m, penalty)
+        if crit < best_crit:
+            best_crit, best_m = crit, m
 
     cps: list[int] = []
     j, m = n, best_m
     while m > 0:
-        b = int(prev[m][j])
+        b = int(prev[m, j])
         cps.append(b)
         j, m = b, m - 1
     return sorted(cps)
 
 
-def _chow_breakpoint(y, h_frac: float = 0.15) -> int | None:
-    """Single sup-F (Chow) breakpoint over the trimmed range (1-based) or None."""
-    rss, n = _rss_prefix(y)
+def _meanvar_single_break(y, h_frac: float = 0.15) -> int | None:
+    """Single break maximising the Gaussian mean+variance log-likelihood ratio.
+
+    Scans the trimmed range for the split that most reduces the segment deviance
+    ``m*log(RSS/m)`` -- a scale-aware generalisation of Chow's homoskedastic
+    sup-F, which only tests the *mean* coefficients (Chow 1960; Andrews 1993).
+    Returns the 1-based break index or ``None``.
+    """
+    rss, rss_vec, n = _mv_prefix(y)
     h = int(np.floor(n * h_frac))
-    k = 2
-    if h < 1 or h > n - h or n - 2 * k <= 0:
+    if h < 1 or h > n - h:
         return None
-    rss0 = rss(1, n)
-    best_i = None
-    best_f = -np.inf
-    for i in range(h, n - h + 1):
-        r = rss(1, i) + rss(i + 1, n)
-        f = np.inf if r <= 0 else ((rss0 - r) / k) / (r / (n - 2 * k))
-        if f > best_f:
-            best_f = f
-            best_i = i
-    return best_i
+    full = _mv_seg_cost(rss(1, n), n)
+    i = np.arange(h, n - h + 1)
+    if len(i) == 0:
+        return None
+    # right segment (i+1 .. n) vectorises over the left endpoint at fixed j = n;
+    # the left segment (1 .. i) is a cheap prefix evaluation.
+    left = _mv_seg_cost(np.array([rss(1, ii) for ii in i]), i)
+    right = _mv_seg_cost(rss_vec(i + 1, n), n - i)
+    lr = full - (left + right)
+    return int(i[int(np.argmax(lr))])
 
 
 class HcpChow(Harbinger):
-    """Chow structural-break detector (native port of R ``hcp_chow``).
+    """Scale-aware structural-break detector ("++" evolution of R ``hcp_chow``).
 
-    Finds the single most significant structural break in the linear model
-    ``y ~ t`` via the sup-F (Chow) statistic over a trimmed range. Native
-    re-implementation that replaces R's ``strucchange`` dependency.
+    How it works / theory
+    ---------------------
+    Reports the single most significant structural break in the series by scanning
+    a trimmed range for the split point that maximises the Gaussian **mean +
+    variance** log-likelihood ratio (the ``m*log(RSS/m)`` deviance of the two
+    sub-segments vs the whole). This is a scale-aware generalisation of the
+    classical Chow test: Chow's F-statistic only tests the *mean* regression
+    coefficients (homoskedastic errors), so it is blind to a pure variance/scale
+    break; scanning the likelihood ratio over an unknown break date follows the
+    sup-type construction of Andrews (1993).
+
+    Origin & adaptation
+    -------------------
+    Origin: R ``hcp_chow`` uses ``strucchange::Fstats`` (homoskedastic sup-F on
+    ``y ~ t``). **"++" adaptation:** the homoskedastic F-statistic is replaced by
+    the mean+variance Gaussian log-likelihood ratio, so the detector also catches
+    variance-regime changes. Measured on ``examples_changepoints`` (SoftED-F1 vs
+    ground truth) this lifts the summed F1 over the seven series from the faithful
+    port's 3.40 (R ``strucchange`` 3.31) to **3.73**.
 
     Parameters
     ----------
     h:
         Minimal segment size as a fraction of the series length (trimming).
+
+    References
+    ----------
+    - Chow GC (1960). Tests of equality between sets of coefficients in two linear
+      regressions. Econometrica 28(3):591-605.
+    - Andrews DWK (1993). Tests for parameter instability and structural change
+      with unknown change point. Econometrica 61(4):821-856.
+    - Chen J, Gupta AK (2000). Parametric Statistical Change Point Analysis.
+    - Zeileis A et al. (2002). strucchange. J. Statistical Software 7(2).
+
+    Porting
+    -------
+    Mirrors ``hcp_chow.R``. Fidelity: adapted (++).
+    - Replaces ``strucchange``'s homoskedastic Chow sup-F (mean coefficients only)
+      with a scale-aware mean+variance Gaussian LR scan over the unknown break.
+      Parity with R is intentionally not preserved; the acceptance criterion is
+      detection quality vs ground truth (see ``develop/benchmark_backimpl.py``).
     """
 
     def __init__(self, h: float = 0.15):
@@ -714,28 +812,71 @@ class HcpChow(Harbinger):
         self._store_refs(serie)
         n = len(self.serie)
         cp = np.zeros(n, dtype=bool)
-        bp = _chow_breakpoint(self.serie, self.h)
+        bp = _meanvar_single_break(self.serie, self.h)
         if bp is not None:
             cp[bp - 1] = True
         return self._restore_refs(change_points=cp)
 
 
 class HcpGft(Harbinger):
-    """Generalized fluctuation / structural-change detector (port of R ``hcp_gft``).
+    """Multiple structural-break detector ("++" evolution of R ``hcp_gft``).
 
-    Finds multiple structural breaks in ``y ~ t`` by the Bai & Perron dynamic
-    program, with the number of breaks chosen by BIC. Native re-implementation
-    that replaces R's ``strucchange`` dependency.
+    How it works / theory
+    ---------------------
+    Finds multiple structural breaks with the Bai & Perron dynamic program, but
+    under a Gaussian **mean + variance** segment cost -- each segment pays the ML
+    deviance ``m*log(RSS/m)`` (per-segment variance), so the optimal partition
+    places breaks at level/trend *and* scale changes. The number of breaks is
+    chosen by the conservative LWZ information criterion (Liu, Wu & Zidek 1997),
+    ``c*(ln n)^(2+d)*p`` (c=0.299, d=0.1), which penalises extra breaks more
+    heavily than BIC and curbs over-segmentation. The DP inner loop is vectorised
+    with prefix sums.
+
+    Origin & adaptation
+    -------------------
+    Origin: R ``hcp_gft`` uses ``strucchange::breakpoints`` -- the least-squares
+    (mean-only) Bai-Perron program with a Gaussian BIC. **"++" adaptation:** (1)
+    the least-squares cost is generalised to the mean+variance Gaussian deviance
+    (cf. normal mean+variance change-point segmentation, Chen & Gupta 2000;
+    Killick et al. 2012), capturing variance regimes the mean-shift model misses;
+    (2) BIC is replaced by the conservative LWZ criterion; (3) the DP is
+    vectorised. Measured on ``examples_changepoints`` (SoftED-F1 vs ground truth)
+    this lifts the summed F1 over the seven series from the faithful port's 2.44
+    (R ``strucchange`` 2.20) to **3.17**.
 
     Parameters
     ----------
     h:
         Minimal segment size as a fraction of the series length.
+    penalty:
+        Break-count information criterion: ``"lwz"`` (default, conservative) or
+        ``"bic"``.
+
+    References
+    ----------
+    - Bai J, Perron P (1998, 2003). Estimating/testing linear models with multiple
+      structural changes; dynamic-programming computation. Econometrica 66(1);
+      J. Applied Econometrics 18.
+    - Liu J, Wu S, Zidek JV (1997). On segmented multivariate regression.
+      Statistica Sinica 7:497-525. (LWZ criterion)
+    - Chen J, Gupta AK (2000). Parametric Statistical Change Point Analysis.
+    - Killick R, Fearnhead P, Eckley IA (2012). Optimal detection of changepoints
+      with a linear computational cost. JASA 107(500):1590-1598.
+    - Zeileis A et al. (2002). strucchange. J. Statistical Software 7(2).
+
+    Porting
+    -------
+    Mirrors ``hcp_gft.R``. Fidelity: adapted (++).
+    - Generalises ``strucchange``'s least-squares Bai-Perron breakpoints to a
+      Gaussian mean+variance cost with an LWZ penalty. Parity with R is
+      intentionally not preserved; the acceptance criterion is detection quality
+      vs ground truth (see ``develop/benchmark_backimpl.py``).
     """
 
-    def __init__(self, h: float = 0.15):
+    def __init__(self, h: float = 0.15, penalty: str = "lwz"):
         super().__init__()
         self.h = h
+        self.penalty = penalty
 
     def detect(self, serie, **kwargs):
         if serie is None:
@@ -743,7 +884,7 @@ class HcpGft(Harbinger):
         self._store_refs(serie)
         n = len(self.serie)
         cp = np.zeros(n, dtype=bool)
-        for bp in _bai_perron_breakpoints(self.serie, self.h):
+        for bp in _meanvar_breakpoints(self.serie, self.h, self.penalty):
             if 1 <= bp <= n:
                 cp[bp - 1] = True
         return self._restore_refs(change_points=cp)

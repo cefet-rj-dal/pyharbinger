@@ -574,3 +574,50 @@ Ordem/escopo **a combinar com o Eduardo** (ele refina este ciclo em detalhe):
   60 CPs, ver teste). **Próximo:** pausa p/ revisão do Eduardo → ff-merge →
   (talvez) publicar. Fecha a trilha 0.4.x (strucchange ✅ / forecast ✅ / ocp ✅).
   Depois: port do HanrFftSma corrigido (oferecer como release própria, ex. 0.5.0).
+
+---
+
+## Pass "++" — releitura genuína das back-implementations (Eduardo, 2026-11-21)
+
+> As 5 back-implementations das 0.4.1–0.4.3 eram **ports fiéis** (o BOCPD era quase
+> linha-a-linha do `ocp` → maior exposição de autoria). Eduardo pediu transformá-las
+> em **versões ++** dos originais: avanço real de método/algoritmo, para
+> **contribuir com a ciência** em vez de "copiar" código de terceiros (mesmo citando).
+>
+> **Decisões (AskUserQuestion, 2026-11-21):** (1) **Método ++ que diverge de
+> propósito** — isto **muda o critério da Ação 1**: não é mais "bate com o pacote de
+> referência", e sim "**detecta a verdade tão bem ou melhor**" (SoftED-F1 vs a coluna
+> `event` que o `examples_changepoints` já traz, comparado ao F1 do próprio pacote de
+> referência). Paridade com o R vira nota documentada (`adapted (++)`), não requisito.
+> (2) **Uma release por pacote de origem**, mesma cadência. Numeração: **0.4.4 =
+> strucchange++, 0.4.5 = forecast++, 0.4.6 = ocp++**. As docstrings mantêm
+> `References:` ao original **e citam os artigos que inspiraram cada ++** (inovação
+> auditável). Instrumento oficial: `develop/benchmark_backimpl.py` (F1 vs ground-truth).
+
+- **2026-11-21 — 0.4.4 = `strucchange`++ IMPLEMENTADO** (branch
+  `milestone-10-strucchange-plusplus`, sai da 0.4.3). `HcpChow`/`HcpGft`
+  re-engenheirados: o critério de **mínimos-quadrados (só-média)** do `strucchange`
+  foi generalizado para um **custo gaussiano de média+variância**
+  (`m·log(RSS/m)`, variância por segmento), capturando regimes de
+  variância/amplitude que o modelo de quebra-de-média não enxerga. `HcpChow` =
+  quebra única que maximiza a **razão de verossimilhança** média+variância
+  (generalização escala-ciente do sup-F de Chow homoscedástico; scan sobre a
+  quebra desconhecida à la Andrews 1993). `HcpGft` = DP de Bai-Perron **vetorizado**
+  sob o custo média+variância + seleção do nº de quebras pelo critério **LWZ**
+  (Liu-Wu-Zidek 1997, `c·(ln n)^(2+δ)·p`, c=0.299, δ=0.1) no lugar do BIC (mais
+  conservador → menos super-segmentação). Novos helpers `_mv_prefix` (RSS escalar +
+  vetorizado), `_mv_seg_cost`, `_break_penalty`, `_meanvar_breakpoints`,
+  `_meanvar_single_break` (substituem `_rss_prefix`/`_structural_bic`/
+  `_bai_perron_breakpoints`/`_chow_breakpoint`). Docstrings com origem+adaptação+
+  citações (Chow 1960; Bai&Perron 1998/2003; Andrews 1993; LWZ 1997; Chen&Gupta
+  2000; Killick et al. 2012; Zeileis et al. 2002). **Gate Ação 1++ (SoftED-F1 vs
+  ground-truth, soma nas 7 séries, máx 7.0):** CHOW **3.733** (port fiel 3.400 / R
+  3.307); GFT **3.168** (port fiel 2.441 / R 2.200) — ambos superam o R e o próprio
+  port. Ganhos vêm de capturar `increasing_amplitude`/`complex` (variância/amplitude)
+  e de o LWZ acertar `abrupt`. 137 testes (test_changepoint_structural.py reescrito
+  para o critério ++: bate-o-R + regressão de posições + teste de que o custo
+  média+variância pega quebra pura de variância + LWZ≤BIC), ruff limpo, 7 notebooks
+  (subseção structural reescrita), build+twine check PASS 0.4.4.
+  **Próximo:** pausa p/ revisão do Eduardo → ff-merge. Depois 0.4.5 = forecast++
+  (ChangeFinder SDAR original de Takeuchi&Yamanishi 2006) e 0.4.6 = ocp++ (BOCPD
+  pela posterior de run-length `P(r_t=0)` + poda ε + log-space + streaming).

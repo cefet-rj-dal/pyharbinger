@@ -1,89 +1,108 @@
-"""Tests for the structural-change detectors (chow, gft).
+"""Tests for the structural-change detectors (chow, gft) -- the "++" re-engineering.
 
-These are native re-implementations that replace R's ``strucchange`` dependency
-(back-implementation initiative), so parity is measured against the R harbinger
-package on ``examples_changepoints`` and gated by the "small difference" check:
-
-* ``HcpGft`` matches R exactly on the 5 well-conditioned series.
-* ``HcpChow`` matches R exactly on 6 of 7 series.
-* The remaining cases (``simple`` ramp, ``sinusoidal``) are documented ties /
-  degeneracies with an identical fit objective, not real disagreements.
+``HcpChow`` / ``HcpGft`` started as faithful native ports of R's ``strucchange``
+backend. They were then **re-engineered into "++" versions**: the least-squares
+(mean-only) criterion is generalised to a Gaussian **mean + variance** cost, so
+the detectors also catch scale/variance-regime changes; ``HcpGft`` uses the
+conservative LWZ penalty for the break count. Because this deliberately diverges
+from ``strucchange``, the acceptance criterion is no longer R parity but
+**detection quality vs the ground truth** (SoftED-F1), which must beat the R
+reference. See ``develop/benchmark_backimpl.py``.
 """
 from __future__ import annotations
 
 import numpy as np
 import pytest
 
-from pyharbinger import HcpChow, HcpGft, datasets
+from pyharbinger import HarEvalSoft, HcpChow, HcpGft, datasets
+from pyharbinger.changepoint import _meanvar_breakpoints, _meanvar_single_break
 
 CP = datasets.examples_changepoints()
 
 
 def _cps(detection):
-    return [int(i) + 1 for i in np.where(detection["event"].to_numpy())[0]]
+    return [int(i) for i in np.where(detection["event"].to_numpy())[0]]
 
 
-# --- HcpGft: exact R parity on the well-conditioned series -------------------
+def _softed_total(cls) -> float:
+    """Summed SoftED-F1 (window 15) vs ground truth over the 7 series."""
+    total = 0.0
+    for df in CP.values():
+        gt = df["event"].to_numpy(dtype=bool)
+        det = cls().detect(df["serie"].to_numpy(dtype=float))["event"].to_numpy(dtype=bool)
+        f1 = HarEvalSoft(sw_size=15).evaluate(det, gt)["F1"]
+        total += 0.0 if (f1 is None or np.isnan(f1)) else float(f1)
+    return total
 
-GFT_REFERENCE = {
-    "incremental": [86],
-    "abrupt": [100, 149],
-    "volatility": [123, 170],
-    "increasing_amplitude": [629, 816],
-    "complex": [200, 307, 391],
+
+# --- Action-1++ gate: the ++ version must beat the R reference ----------------
+
+# Summed SoftED-F1 of the reference R ``strucchange`` detections (from the
+# faithful-port milestone) over the 7 series -- the bar the ++ must clear.
+R_REF_TOTAL = {"chow": 3.307, "gft": 2.200}
+
+
+def test_chow_beats_r_reference():
+    assert _softed_total(HcpChow) > R_REF_TOTAL["chow"]
+
+
+def test_gft_beats_r_reference():
+    assert _softed_total(HcpGft) > R_REF_TOTAL["gft"]
+
+
+# --- Regression anchors (current ++ detections, 0-based) ---------------------
+
+CHOW_EXPECTED = {
+    "simple": [48], "sinusoidal": [49], "incremental": [85], "abrupt": [99],
+    "volatility": [122], "increasing_amplitude": [504], "complex": [199],
+}
+GFT_EXPECTED = {
+    "simple": [48], "sinusoidal": [25, 41, 57, 73], "incremental": [85],
+    "abrupt": [99], "volatility": [122], "increasing_amplitude": [504],
+    "complex": [199, 297, 390],
 }
 
 
-@pytest.mark.parametrize(("name", "expected"), list(GFT_REFERENCE.items()))
-def test_gft_matches_r(name, expected):
-    det = HcpGft().detect(CP[name]["serie"].to_numpy(dtype=float))
-    assert _cps(det) == expected
+@pytest.mark.parametrize(("name", "expected"), list(CHOW_EXPECTED.items()))
+def test_chow_detections(name, expected):
+    assert _cps(HcpChow().detect(CP[name]["serie"].to_numpy(dtype=float))) == expected
 
 
-# --- HcpChow: exact R parity on 6 of 7 series -------------------------------
-
-CHOW_REFERENCE = {
-    "sinusoidal": [50],
-    "incremental": [86],
-    "abrupt": [100],
-    "volatility": [149],
-    "increasing_amplitude": [817],
-    "complex": [200],
-}
+@pytest.mark.parametrize(("name", "expected"), list(GFT_EXPECTED.items()))
+def test_gft_detections(name, expected):
+    assert _cps(HcpGft().detect(CP[name]["serie"].to_numpy(dtype=float))) == expected
 
 
-@pytest.mark.parametrize(("name", "expected"), list(CHOW_REFERENCE.items()))
-def test_chow_matches_r(name, expected):
-    det = HcpChow().detect(CP[name]["serie"].to_numpy(dtype=float))
-    assert _cps(det) == expected
+# --- The mean+variance innovation actually catches a variance break ----------
 
 
-# --- Documented ties / degeneracies -----------------------------------------
+def test_meanvar_catches_pure_variance_break():
+    # A constant-mean series whose variance jumps at t=100: a mean-only Chow
+    # would be blind to it, but the mean+variance LR locates it.
+    rng = np.random.default_rng(0)
+    y = np.concatenate([rng.normal(0, 0.2, 100), rng.normal(0, 2.0, 100)])
+    bp = _meanvar_single_break(y, 0.15)
+    assert bp is not None
+    assert abs((bp - 1) - 100) <= 15  # within the SoftED tolerance window
 
 
-def test_chow_simple_is_a_tie():
-    # 'simple' is a perfectly piecewise-linear ramp: the pre/post split that
-    # zeroes the residual sum of squares makes the sup-F statistic diverge, so
-    # positions 49 and 50 are tied (identical objective). R picks 50, we pick 49.
-    det = HcpChow().detect(CP["simple"]["serie"].to_numpy(dtype=float))
-    assert _cps(det) in ([49], [50])
+def test_gft_lwz_is_more_conservative_than_bic():
+    # The conservative LWZ penalty should never select more breaks than BIC.
+    for df in CP.values():
+        y = df["serie"].to_numpy(dtype=float)
+        n_lwz = len(_meanvar_breakpoints(y, 0.15, "lwz"))
+        n_bic = len(_meanvar_breakpoints(y, 0.15, "bic"))
+        assert n_lwz <= n_bic
 
 
-def test_gft_sinusoidal_same_count_identical_rss():
-    # Sinusoidal yields the same number of breaks as R (5); the exact positions
-    # differ because the segmentations have an identical total residual sum of
-    # squares (a tie between equally optimal partitions), not a worse fit.
-    det = HcpGft().detect(CP["sinusoidal"]["serie"].to_numpy(dtype=float))
-    assert len(_cps(det)) == 5
+def test_gft_penalty_param_wired():
+    y = CP["increasing_amplitude"]["serie"].to_numpy(dtype=float)
+    assert _cps(HcpGft(penalty="lwz").detect(y)) == _cps(
+        HcpGft().detect(y)  # lwz is the default
+    )
 
 
-def test_gft_simple_degenerate_ramp():
-    # 'simple' is a degenerate ramp; GFT still returns a change point.
-    det = HcpGft().detect(CP["simple"]["serie"].to_numpy(dtype=float))
-    assert len(_cps(det)) >= 1
-
-
-# --- Contract ---------------------------------------------------------------
+# --- Contract ----------------------------------------------------------------
 
 
 def test_structural_cp_table_contract():

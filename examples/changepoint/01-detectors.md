@@ -123,17 +123,21 @@ for name, det_model in [
 > model selection is numerically ill-conditioned and the exact break positions
 > may differ from R (the dominant change point is still recovered).
 
-## Structural-change detectors (native strucchange replacement)
+## Structural-change detectors (strucchange replacement, re-engineered "++")
 
-`HcpChow` and `HcpGft` detect **structural breaks** in the linear trend
-`y ~ t`. They are **native re-implementations** that replace R's dependency on
-the `strucchange` package (part of the back-implementation initiative): a
-prefix-sum OLS residual sum of squares, the Bai & Perron dynamic program for
-multiple breaks, and a Gaussian BIC reverse-engineered from `strucchange`.
+`HcpChow` and `HcpGft` detect **structural breaks**. They began as native ports
+of R's `strucchange` backend and were then **re-engineered into "++" versions**:
+the original least-squares (mean-only) criterion is generalised to a Gaussian
+**mean + variance** segmentation cost, so the detectors also catch
+scale/variance-regime changes (e.g. volatility or amplitude shifts) that a
+mean-shift model is blind to.
 
-* `HcpChow` — the single most significant break via the sup-F (Chow) statistic.
-* `HcpGft` — multiple breaks via the Bai & Perron dynamic program, with the
-  number of breaks chosen by BIC.
+* `HcpChow` — the single break that maximises the mean+variance Gaussian
+  log-likelihood ratio (a scale-aware generalisation of Chow's homoskedastic
+  sup-F; the break is scanned over the unknown change date à la Andrews 1993).
+* `HcpGft` — multiple breaks via a vectorised Bai & Perron dynamic program under
+  the mean+variance cost, with the break count chosen by the conservative LWZ
+  criterion (Liu, Wu & Zidek 1997) instead of plain BIC.
 
 
 ```python
@@ -145,13 +149,16 @@ for name, det_model in [("chow", HcpChow()), ("gft", HcpGft())]:
 ```
 
     chow  change points at: [99]
-    gft   change points at: [99, 148]
+    gft   change points at: [99]
     
 
-> **Parity note.** `HcpGft` matches R exactly on the well-conditioned example
-> series and `HcpChow` on 6 of 7; the remaining `simple` (ramp) and `sinusoidal`
-> cases are ties — segmentations with an identical fit objective, so R and the
-> native implementation pick equally optimal but different positions.
+> **Quality note (Action-1++ gate).** Because the "++" versions deliberately
+> diverge from `strucchange`, they are no longer judged by R parity but by
+> **detection quality vs the ground truth** (`event` column). On the seven
+> `examples_changepoints` series the summed SoftED-F1 rises from the faithful
+> ports' 3.40 / 2.44 (R `strucchange` 3.31 / 2.20) to **3.73 (chow) / 3.17 (gft)**
+> — the mean+variance cost recovers variance/amplitude regimes the original
+> mean-shift model misses. See `develop/benchmark_backimpl.py`.
 
 ## ChangeFinder with ARIMA / ETS (native forecast replacement)
 

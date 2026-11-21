@@ -104,11 +104,14 @@ documented:
   perfectly piecewise-linear series its segment residuals collapse to round-off,
   so the exact break positions are numerically ill-conditioned (the dominant
   change point is still recovered).
-- `HcpChow` and `HcpGft` are **native re-implementations** of R's `strucchange`
-  backend (Bai & Perron dynamic program + a reverse-engineered Gaussian BIC).
-  `HcpGft` matches R exactly on the well-conditioned series and `HcpChow` on 6 of
-  7; the remaining `simple` (ramp) and `sinusoidal` cases are ties with an
-  identical fit objective, not disagreements.
+- `HcpChow` and `HcpGft` are **re-engineered "++" versions** of R's `strucchange`
+  backend: the least-squares (mean-only) Chow sup-F / Bai & Perron breakpoints are
+  generalised to a Gaussian **mean + variance** segmentation cost (with the
+  conservative LWZ penalty for the break count in `HcpGft`), so they also catch
+  scale/variance-regime changes the mean-shift model misses. They deliberately
+  diverge from `strucchange`, so the gate is detection quality vs ground truth,
+  not R parity: on the example series the summed SoftED-F1 rises from the faithful
+  ports' 3.40 / 2.44 (R 3.31 / 2.20) to **3.73 / 3.17** (`develop/benchmark_backimpl.py`).
 - `HcpCfArima` and `HcpCfEts` are **native re-implementations** of R's `forecast`
   backend (`auto.arima` / `ets`): the models are fitted with `statsmodels`, but
   the order/model *selection* is ours. `HcpCfEts` matches R `ets()` exactly on all
