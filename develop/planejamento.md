@@ -312,6 +312,42 @@ Tudo o mais é ✅ (reuso) ou 🔨 (nativo).
 5. **Gate de release:** cada dep nova é validada quanto a *wheel* para a versão de
    Python alvo (lição do `ruptures` 1.0.6 + `--prefer-binary` no py3.14) antes de entrar.
 
+## Iniciativa: back-implementation (substituir dependências pela nossa implementação)
+
+> **Direção estratégica (2026-11-20, Eduardo).** Além de "não reimplementar", temos
+> uma **trilha paralela** para, onde fizer sentido, **trocar dependências de terceiros
+> pela nossa própria implementação nativa** — tornando o stack DAL autocontido e com a
+> **paridade sob nosso controle** (em vez de refém dos defaults de `strucchange`/
+> `forecast`/`ocp`/`ruptures`). Não é substituir tudo: é um alvo seletivo.
+
+**Duas ações combinadas:**
+
+- **Ação 1 — gate "diferença pequena" (por detector).** Ao portar nativo, **medir o
+  gap vs. o pacote de referência** (R ou lib original) nas séries de exemplo. Só
+  aceitar se o erro/diferença for pequeno; documentar a tolerância (mesmo método de
+  PELT/KSWIN/joinpoint/ELM). Se o gap for grande, investigar antes de prosseguir.
+- **Ação 2 — trilha de back-implementation.** Registrar e executar, de forma gradual,
+  a substituição das dependências por implementação própria, priorizando:
+  1. **Sem equivalente mantido em Python** → nativo é a única via fiel: `ocp` (BOCPD).
+  2. **Dependência que causa atrito** (wheel/compilação): `ruptures` (sofremos no
+     py3.14 com 1.1.x) — PELT/Dynp/BinSeg são bem-especificados e portáveis; portar
+     nativo removeria a dep e o gate `--prefer-binary`.
+  3. **Auto-seleção que quebra a paridade**: `forecast::auto.arima`/`ets`
+     (`cf_arima`/`cf_ets`) e `strucchange` (chow/gft) — implementação própria da
+     seleção dá controle do resultado.
+  4. **Libs canônicas e estáveis permanecem embrulhadas** salvo atrito real:
+     `scikit-learn`, `scipy`, `stumpy`, `arch`, `EMD-signal`, `PyWavelets`. Para essas,
+     o custo/risco de reimplementar (numérico, sutil) supera o ganho — manter 🆕.
+
+**Trade-off explícito:** isto flexiona o princípio "não reimplementar" — reimplementamos
+quando a lib **falta / não é mantida / causa atrito / impede a paridade**; seguimos
+embrulhando as libs canônicas e estáveis. Cada back-implementation passa pela Ação 1.
+
+**Candidatos priorizados:** `ocp`→BOCPD nativo (P1); `strucchange`→Chow/Bai-Perron
+nativos (P2); `forecast`→ARIMA/ETS com seleção própria (P2); `ruptures`→PELT/Dynp/BinSeg
+nativos, removendo a dep do núcleo (P3, maior esforço, revalida HcpAmoc/Binseg/Pelt +
+cutoff dos híbridos FFT).
+
 ## Releases graduais — DOIS CICLOS
 
 Estrutura em **duas rodadas** sobre os mesmos temas:
@@ -342,7 +378,9 @@ revisão do Eduardo, ff-merge (mesma cadência da v1).
   0.4.1 (paridade sensível, refinar com Eduardo):** `HcpChow`/`HcpGft` (exigem portar
   o Bai-Perron do `strucchange`), `HcpCfArima`/`HcpCfEts` (statsmodels ≠
   `forecast::auto.arima`/`ets` → aproximado), `HcpBocpd` (nativo vs pacote `ocp`).
-  (`HcpWaypoint` segue no Ciclo 2 — torch.)
+  (`HcpWaypoint` segue no Ciclo 2 — torch.) **Todos os 5 serão implementação própria
+  (nativa), passando pelo gate da Ação 1** (medir diferença vs. o pacote de referência
+  e aceitar só se pequena) — ver *Iniciativa: back-implementation*.
 - **0.5.0 — Simbólico (motif/discord nativo).** SAX/xSAX: `TransSax`, `TransXsax`,
   `HmoSax`, `HmoXsax`, `HdisSax`. Embarca dataset `examples_motifs`.
 - **0.6.0 — Ensembles + visualização.** `HarEnsemble`, `HarEnsembleFuzzy` (+`fuzzify`) +
