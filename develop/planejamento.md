@@ -343,6 +343,15 @@ Tudo o mais é ✅ (reuso) ou 🔨 (nativo).
 quando a lib **falta / não é mantida / causa atrito / impede a paridade**; seguimos
 embrulhando as libs canônicas e estáveis. Cada back-implementation passa pela Ação 1.
 
+**⚠️ Não é regra cega — é planejamento de DISCUSSÃO (caso a caso).** A inversão
+*Python = releitura / R = backport* é a **tendência**, não um absoluto, e **não se aplica
+a tudo**. O alvo são **pacotes atípicos / de nicho** (sem equivalente mantido, que causam
+atrito de build, ou cuja auto-seleção impede a paridade) — **não** as libs canônicas e
+comuns. Quando já existe uma implementação **madura** de um dos lados e a **diferença é
+pequena**, mantém-se o que há — ex.: o **MLP do `scikit-learn` não vira back-implementation**,
+porque o R já tem um MLP nativo excelente e a diferença é pequena. Cada candidato é
+**decidido em conjunto**, caso a caso, nunca por automação.
+
 **Candidatos priorizados:** `ocp`→BOCPD nativo (P1); `strucchange`→Chow/Bai-Perron
 nativos (P2); `forecast`→ARIMA/ETS com seleção própria (P2); `ruptures`→PELT/Dynp/BinSeg
 nativos, removendo a dep do núcleo (P3, maior esforço, revalida HcpAmoc/Binseg/Pelt +
