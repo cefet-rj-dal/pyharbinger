@@ -58,7 +58,7 @@ Every detector extends `Harbinger` and returns a detection table with columns
 | **Core** | `Harbinger` (base contract), deviation / filter / candidate-selection utilities |
 | **Evaluation** | `HarEval` (hard), `HarEvalSoft` (SoftED, soft matching via the Hungarian algorithm) |
 | **Anomaly** | `HanrMl` (forecasting residuals, wraps a pytspredit regressor), `HanrFft`, `HanrFftAmoc`, `HanrFftBinseg`, `HanrFftAmocCusum`, `HanrFftBinsegCusum`, `HanrHistogram`, `HanrFbiad` |
-| **Change point** | `HcpAmoc`, `HcpBinseg`, `HcpPelt` (via `ruptures`), `HcpKswin`, `HcpPageHinkley`, `HcpCfLr`, `HcpScp`, `HcpJoinpoint`, `HcpChow`, `HcpGft` (native structural change), `HcpCfArima`, `HcpCfEts` (ChangeFinder, native forecast replacement), `HcpBocpd` (Bayesian online, native ocp replacement) |
+| **Change point** | `HcpAmoc`, `HcpBinseg`, `HcpPelt` (via `ruptures`), `HcpKswin`, `HcpPageHinkley`, `HcpCfLr`, `HcpScp`, `HcpJoinpoint`, `HcpChow`, `HcpGft` (native structural change), `HcpCfArima`, `HcpCfEts` (ChangeFinder, native forecast replacement), `HcpBocpd` (Bayesian online, "++" ocp re-engineering) |
 | **Clustering** | `HanctKmeans` (anomalies / discords) |
 | **Classification** | `HancMl` (supervised; wraps a pydaltoolbox classifier) |
 | **Multivariate** | `HmuPca` (PCA reconstruction error) |
@@ -122,13 +122,19 @@ documented:
   parity: on the example series the summed SoftED-F1 rises from the faithful ports'
   2.78 / 2.66 (R `forecast` 2.92 / 2.66) to **3.84 / 3.64**
   (`develop/benchmark_backimpl.py`).
-- `HcpBocpd` is a **native** (pure numpy/scipy) re-implementation of R's `ocp`
-  backend — Bayesian Online Change Point Detection (Adams & MacKay, 2007) with a
-  Normal-Inverse-Gamma / Student-t predictive. `ocp` is only an R `Suggests`
-  dependency and has no maintained Python port, so native is the only faithful
-  path. It matches the real `ocp` backend **exactly** (identical detected
-  indices) on all seven example series, including the long `increasing_amplitude`
-  (n = 1002).
+- `HcpBocpd` is a **re-engineered "++" version** of Bayesian Online Change Point
+  Detection (Adams & MacKay, 2007), not a port of R's `ocp` backend. Three
+  advances over `ocp`: (1) a conjugate **Bayesian autoregressive UPM** (a linear
+  regression of `x_t` on its lags per run length) in place of `ocp`'s i.i.d.
+  Gaussian UPM, so it detects changes in *dynamics* (slope, trend,
+  autocorrelation), not only level/variance; (2) a **log-space, eps-pruned
+  streaming** run-length recursion (bounded state, `O(n·R̄)` instead of `O(n²)`);
+  and (3) change points read from the **Bayesian predictive surprise** via a
+  robust local z-score, replacing `ocp`'s noisy three-list voting. It deliberately
+  diverges from `ocp`, so the gate is detection quality vs ground truth, not R
+  parity: on the example series the summed SoftED-F1 rises from the faithful port's
+  **1.12** (= R `ocp`) to **3.59** (`develop/benchmark_backimpl.py`) — the AR UPM
+  recovers the trend/slope change points the mean/variance model misses.
 
 ## Related DAL projects
 

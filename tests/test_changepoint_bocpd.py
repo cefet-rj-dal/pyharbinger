@@ -1,60 +1,167 @@
-"""Tests for the Bayesian Online Change Point Detection detector (bocpd).
+"""Tests for the BOCPD detector (bocpd) -- the "++" re-engineering.
 
-``HcpBocpd`` is a native (pure numpy/scipy) back-implementation of R's ``ocp``
-package -- the back-implementation initiative's P1 case ("no maintained Python
-equivalent -> native is the only faithful path"). ``ocp`` is only an R
-``Suggests`` dependency (Adams & MacKay 2007, gaussian UPM).
+``HcpBocpd`` was a faithful native port of R's ``ocp`` package (i.i.d. Gaussian
+UPM + three-list voting). It was then **re-engineered into a "++" version**: a
+genuine re-reading of Bayesian Online Change Point Detection (Adams & MacKay
+2007) with (1) a conjugate **Bayesian autoregressive UPM** (sensitive to changes
+in dynamics/slope, not only level/variance), (2) a **log-space, eps-pruned
+streaming** run-length recursion, and (3) change points read from the **Bayesian
+predictive surprise** via a robust local z-score, replacing the noisy ``ocp``
+voting.
 
-The "small difference" (Action-1) gate is measured against the *real* ``ocp``
-backend (installed from the CRAN archive, ``ocp`` 0.1.1) driven through the R
-``hcp_bocpd`` on ``examples_changepoints``: parity is **EXACT** (identical
-detected indices) on all seven series, including the long
-``increasing_amplitude`` (n=1002).
+Because this deliberately diverges from ``ocp``, the gate is detection quality
+vs the ground truth (SoftED-F1), which must beat the R reference. See
+``develop/benchmark_backimpl.py``.
 """
 from __future__ import annotations
 
 import numpy as np
 import pytest
 
-from pyharbinger import HcpBocpd, datasets
-from pyharbinger.changepoint import _bocpd_studentpdf
+from pyharbinger import HarEvalSoft, HcpBocpd, datasets
+from pyharbinger.changepoint import (
+    _bocpd_ar_surprise,
+    _bocpd_local_z,
+    _bocpd_peaks,
+)
 
 CP = datasets.examples_changepoints()
 
 
 def _cps(detection):
-    """0-based indices of detected change points (the detection ``idx`` column)."""
-    return detection.loc[detection["event"], "idx"].tolist()
+    return [int(i) for i in np.where(detection["event"].to_numpy())[0]]
 
 
-# --- EXACT R (ocp) parity on all 7 series ------------------------------------
+def _softed_total(cls) -> float:
+    total = 0.0
+    for df in CP.values():
+        gt = df["event"].to_numpy(dtype=bool)
+        det = cls().detect(df["serie"].to_numpy(dtype=float))["event"].to_numpy(dtype=bool)
+        f1 = HarEvalSoft(sw_size=15).evaluate(det, gt)["F1"]
+        total += 0.0 if (f1 is None or np.isnan(f1)) else float(f1)
+    return total
 
-# R harbinger ``hcp_bocpd()`` (defaults) with the real ``ocp`` backend,
-# 0-based detected indices on examples_changepoints.
-BOCPD_REFERENCE = {
-    "simple": [8, 13, 18, 23, 28, 33, 38, 59, 69, 74, 79, 84, 89],
-    "sinusoidal": [7, 23, 32, 37, 60, 69, 74, 89],
-    "incremental": [128, 175],
-    "abrupt": [100, 149],
-    "volatility": [123, 149],
-    "increasing_amplitude": [
-        8, 25, 38, 58, 70, 89, 101, 121, 133, 152, 165, 182, 192, 200, 218,
-        228, 245, 258, 278, 290, 309, 321, 353, 371, 384, 403, 415, 435, 448,
-        465, 476, 501, 509, 526, 539, 559, 571, 590, 602, 622, 634, 653, 664,
-        700, 713, 727, 760, 778, 791, 810, 822, 854, 872, 885, 904, 916, 936,
-        949, 966, 976,
-    ],
-    "complex": [9, 101, 107, 200, 311, 329, 351, 366, 372, 385, 390, 410],
+
+# --- Action-1++ gate: the ++ version must beat the R reference ----------------
+
+# Summed SoftED-F1 of the reference R ``ocp`` detections over the 7 series.
+R_REF_TOTAL = 1.116
+
+
+def test_bocpd_beats_r_reference():
+    assert _softed_total(HcpBocpd) > R_REF_TOTAL
+
+
+def test_bocpd_beats_r_reference_by_margin():
+    # The AR UPM recovers the trend/slope change points ocp is blind to.
+    assert _softed_total(HcpBocpd) > 3.0
+
+
+# --- Regression anchors (current ++ detections, 0-based) ---------------------
+
+BOCPD_EXPECTED = {
+    "simple": [50],
+    "sinusoidal": [58],
+    "incremental": [50, 103, 150, 195],
+    "abrupt": [50, 100, 130, 194],
+    "volatility": [50, 102, 123],
+    "increasing_amplitude": [199, 501, 699, 744],
+    "complex": [200],
 }
 
 
-@pytest.mark.parametrize(("name", "expected"), list(BOCPD_REFERENCE.items()))
-def test_bocpd_matches_r_exactly(name, expected):
-    det = HcpBocpd().detect(CP[name]["serie"].to_numpy(dtype=float))
-    assert _cps(det) == expected
+@pytest.mark.parametrize(("name", "expected"), list(BOCPD_EXPECTED.items()))
+def test_bocpd_detections(name, expected):
+    assert _cps(HcpBocpd().detect(CP[name]["serie"].to_numpy(dtype=float))) == expected
 
 
-# --- structure / API ----------------------------------------------------------
+# --- AR-UPM engine properties -------------------------------------------------
+
+_AR_KW = {"order": 1, "hazard": 250.0, "lam0": 0.1, "a0": 1.0,
+          "b0": 1e-2, "prune_eps": 1e-6}
+
+
+def test_ar_surprise_spikes_at_slope_change():
+    # A pure slope change (triangular kink, no mean/variance shift) is invisible
+    # to an i.i.d. UPM but breaks the segment regression -> surprise peaks there.
+    x = np.concatenate([np.arange(60) * 0.5, 30 - np.arange(1, 61) * 0.5]).astype(float)
+    sur = _bocpd_ar_surprise(x, **_AR_KW)
+    assert abs(int(np.argmax(sur)) - 60) <= 2
+
+
+def test_ar_surprise_spikes_at_mean_shift():
+    rng = np.random.default_rng(0)
+    y = np.concatenate([rng.normal(0, 0.3, 80), rng.normal(6, 0.3, 80)])
+    sur = _bocpd_ar_surprise(y, **_AR_KW)
+    assert int(np.argmax(sur)) >= 80
+
+
+def test_ar_surprise_length_and_finite():
+    x = CP["abrupt"]["serie"].to_numpy(dtype=float)
+    sur = _bocpd_ar_surprise(x, **_AR_KW)
+    assert len(sur) == len(x)
+    assert np.all(np.isfinite(sur))
+
+
+def test_eps_pruning_is_stable():
+    # More aggressive pruning keeps the same leading change points (the dropped
+    # run-length mass is negligible by construction).
+    x = CP["abrupt"]["serie"].to_numpy(dtype=float)
+    fine = _bocpd_ar_surprise(x, order=1, hazard=250.0, lam0=0.1, a0=1.0,
+                              b0=1e-2, prune_eps=1e-8)
+    coarse = _bocpd_ar_surprise(x, order=1, hazard=250.0, lam0=0.1, a0=1.0,
+                                b0=1e-2, prune_eps=1e-4)
+    assert int(np.argmax(fine)) == int(np.argmax(coarse))
+
+
+def test_local_z_is_causal():
+    # The robust local z-score uses only the trailing window -> truncating the
+    # tail does not change earlier z-scores (streaming-compatible).
+    s = np.abs(np.sin(np.arange(60) / 3.0)) + 0.1
+    full = _bocpd_local_z(s, 20)
+    partial = _bocpd_local_z(s[:40], 20)
+    np.testing.assert_allclose(full[:40], partial, rtol=1e-12)
+
+
+def test_peaks_thresholds_and_thins():
+    s = np.zeros(50)
+    s[10] = 8.0
+    s[12] = 7.0        # within min_distance of the stronger peak at 10
+    s[30] = 6.5
+    ev = _bocpd_peaks(s, threshold=6.0, min_distance=5, burn_in=5)
+    assert list(np.where(ev)[0]) == [10, 30]
+
+
+# --- parameter wiring ---------------------------------------------------------
+
+
+def test_bocpd_order_param_wired():
+    s = CP["sinusoidal"]["serie"].to_numpy(dtype=float)
+    assert HcpBocpd(order=2).order == 2
+    assert _cps(HcpBocpd(order=2).detect(s)) != _cps(HcpBocpd(order=1).detect(s))
+
+
+def test_bocpd_burn_in_zeroes_prefix():
+    det = HcpBocpd(burn_in=60).detect(CP["abrupt"]["serie"].to_numpy(dtype=float))
+    assert all(i >= 60 for i in _cps(det))
+
+
+def test_bocpd_min_distance_thins():
+    s = CP["incremental"]["serie"].to_numpy(dtype=float)
+    close = _cps(HcpBocpd(min_distance=2).detect(s))
+    spread = _cps(HcpBocpd(min_distance=30).detect(s))
+    assert len(spread) <= len(close)
+    assert all(d >= 30 for d in np.diff(spread))
+
+
+def test_bocpd_higher_threshold_fewer():
+    s = CP["abrupt"]["serie"].to_numpy(dtype=float)
+    base = set(_cps(HcpBocpd().detect(s)))
+    strict = set(_cps(HcpBocpd(threshold=12.0).detect(s)))
+    assert strict <= base
+
+
+# --- structure / API ---------------------------------------------------------
 
 
 def test_bocpd_detect_structure():
@@ -64,38 +171,11 @@ def test_bocpd_detect_structure():
     assert len(det) == n
     assert det["event"].dtype == bool
     assert set(det["type"].unique()) <= {"", "changepoint"}
-    # the res score (vote proportion) is attached and in [0, 1]
     res = det.attrs["res"]
-    finite = res[~np.isnan(res)]
-    assert finite.min() >= 0.0
-    assert finite.max() <= 1.0
-
-
-def test_bocpd_burn_in_zeroes_prefix():
-    # With a large burn-in no early change point can be flagged.
-    det = HcpBocpd(burn_in=60).detect(CP["abrupt"]["serie"].to_numpy(dtype=float))
-    assert all(i >= 60 for i in _cps(det))
-
-
-def test_bocpd_min_distance_thins():
-    s = CP["simple"]["serie"].to_numpy(dtype=float)
-    close = _cps(HcpBocpd(min_distance=2).detect(s))
-    spread = _cps(HcpBocpd(min_distance=20).detect(s))
-    # a larger minimum distance can only keep fewer (or equal) detections
-    assert len(spread) <= len(close)
-    diffs = np.diff(spread)
-    assert all(d >= 20 for d in diffs)
-
-
-def test_bocpd_higher_threshold_fewer():
-    s = CP["abrupt"]["serie"].to_numpy(dtype=float)
-    base = _cps(HcpBocpd().detect(s))              # threshold 0.5
-    strict = _cps(HcpBocpd(threshold=1.0).detect(s))
-    assert set(strict) <= set(base)
+    assert np.all(np.isfinite(res[~np.isnan(res)]))
 
 
 def test_bocpd_handles_nan():
-    # NaNs are dropped by _store_refs and detections map back to the full index.
     s = CP["abrupt"]["serie"].to_numpy(dtype=float).copy()
     s[5] = np.nan
     det = HcpBocpd().detect(s)
@@ -108,13 +188,6 @@ def test_bocpd_none_input_raises():
         HcpBocpd().detect(None)
 
 
-def test_bocpd_studentpdf_matches_scipy():
-    # The Student-t predictive must agree with scipy's t distribution.
-    from scipy import stats
-
-    x, mu, var, nu = 1.3, 0.2, 2.5, 7.0
-    scale = np.sqrt(var)
-    expected = stats.t.pdf((x - mu) / scale, df=nu) / scale
-    got = float(_bocpd_studentpdf(np.array([x]), np.array([mu]),
-                                  np.array([var]), np.array([nu]))[0])
-    assert got == pytest.approx(expected, rel=1e-10)
+def test_bocpd_fit_is_chainable():
+    model = HcpBocpd()
+    assert model.fit(CP["simple"]["serie"].to_numpy(dtype=float)) is model

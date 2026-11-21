@@ -198,23 +198,32 @@ for name, det_model in [("cf_arima", HcpCfArima()), ("cf_ets", HcpCfEts())]:
 > surprise catches abrupt/variance regimes while the mean+variance break catches
 > smooth trend changes. See `develop/benchmark_backimpl.py`.
 
-## Bayesian Online Change Point Detection (native ocp replacement)
+## Bayesian Online Change Point Detection ("++" ocp re-engineering)
 
-`HcpBocpd` is the Python port of R's `hcp_bocpd`. It implements **Bayesian
-Online Change Point Detection** (Adams & MacKay, 2007): it tracks, online, the
-posterior over the *run length* (time since the last change), which at each step
-either **grows** (no change, weight `1 − 1/hazard`) or **resets** to zero (a
-change, weight `1/hazard`), each hypothesis scored by its one-step predictive
-probability under a conjugate **Normal-Inverse-Gamma** model (unknown mean and
-variance → Student-t predictive).
+`HcpBocpd` implements **Bayesian Online Change Point Detection** (Adams & MacKay,
+2007): it tracks, online, the posterior over the *run length* (time since the last
+change), which at each step either **grows** (no change, weight `1 − 1/hazard`) or
+**resets** to zero (a change, weight `1/hazard`), each hypothesis scored by its
+one-step predictive probability under an *underlying predictive model* (UPM).
 
-It is a **native** (pure numpy/scipy) back-implementation of the R `ocp`
-package, which R uses only as a `Suggests` dependency and which has no maintained
-Python port — the back-implementation initiative's P1 case. Change points are
-extracted exactly as `ocp`/`hcp_bocpd` do: three lists (`colmaxes`, `threshcps`,
-`maxCPs`) vote per position, the votes are normalised, an initial `burn_in` is
-zeroed, positions scoring `≥ threshold` are flagged, and `min_distance` thins
-neighbours.
+It is a **re-engineered "++" version** of BOCPD — a genuine re-reading, not a port
+of R's `ocp` package. Three advances over `ocp`:
+
+1. **Autoregressive UPM.** `ocp` uses an i.i.d. Gaussian UPM, which only sees
+   shifts in *level* and *variance*. Here the per-run-length model is a conjugate
+   **Bayesian linear autoregression** (a regression of `x_t` on `[1, x_{t−1}, …]`
+   with a Normal-Inverse-Gamma prior and a Student-t predictive). A change of
+   slope or oscillation — the kink of a triangular ramp, the turning point of a
+   sinusoid — breaks the segment regression and spikes the evidence, recovering
+   change points the mean/variance UPM never detects.
+2. **Log-space + eps-pruning.** The whole recursion runs in log-space (no
+   underflow clamping), and the run-length distribution is pruned to the entries
+   holding all but a fraction `prune_eps` of the peak mass — a bounded-state,
+   genuinely **streaming** `O(n·R̄)` recursion instead of the `O(n²)` batch one.
+3. **Surprise-based extraction.** Instead of `ocp`'s noisy three-list voting
+   (which over-fires), change points are read from the **Bayesian predictive
+   surprise** `−log p(xₜ | x₁:ₜ₋₁)` via a causal robust local z-score, thinned by
+   `burn_in` and `min_distance`.
 
 
 ```python
@@ -224,11 +233,11 @@ det = HcpBocpd().detect(serie)
 print("change points at:", det.index[det["event"]].tolist())
 ```
 
-    change points at: [100, 149]
+    change points at: [50, 100, 130, 194]
     
 
-> **Parity note (Action-1 gate).** `HcpBocpd` matches the real `ocp` backend
-> (CRAN-archive `ocp` 0.1.1, driven through R `hcp_bocpd`) **exactly** —
-> identical detected indices — on all seven example series, including the long
-> `increasing_amplitude` (n = 1002). Only the gaussian UPM (the R default) is
-> ported.
+> **Gate (Action-1++).** This deliberately diverges from `ocp`, so acceptance is
+> detection quality vs the ground truth (SoftED-F1), not R parity. Summed over the
+> seven example series the "++" detector scores **3.59** (of 7.0), versus **1.12**
+> for the faithful `ocp` reference — the AR UPM recovers the trend/slope change
+> points the mean/variance model misses. See `develop/benchmark_backimpl.py`.

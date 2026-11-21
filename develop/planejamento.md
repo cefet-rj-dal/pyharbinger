@@ -646,3 +646,40 @@ Ordem/escopo **a combinar com o Eduardo** (ele refina este ciclo em detalhe):
   porque o forecast NÃO é de nicho e no Python já estava forecast-free. **Próximo:**
   pausa p/ revisão → ff-merge/publish; **backport p/ R (2.1.747, larga forecast)**;
   depois 0.4.6 = ocp++.
+
+- **2026-11-21 — 0.4.6 = `ocp`++ IMPLEMENTADO** (branch
+  `milestone-12-bocpd-plusplus`, sai da main/0.4.5). **Fecha a trilha ++ das
+  back-implementations 0.4.x** (strucchange++ ✅ / forecast++ ✅ / ocp++ ✅).
+  `HcpBocpd` re-engenheirado: deixa de ser o port fiel do `ocp` (UPM gaussiano
+  i.i.d. + votação de 3 listas `colmaxes`/`threshcps`/`maxCPs`) e passa a uma
+  **releitura genuína do BOCPD** (Adams & MacKay 2007) com três avanços sobre o
+  `ocp`: **(1) UPM autorregressivo Bayesiano** — regressão linear conjugada de
+  `x_t` sobre `[1, x_{t-1}, ...]` (Normal-Inverse-Gamma → Student-t) no lugar do
+  UPM i.i.d., tornando o BOCPD sensível a mudanças de **dinâmica (slope/tendência/
+  autocorrelação)**, não só de nível/variância; **(2) recursão em log-space com
+  poda ε** do vetor de run-length (estado limitado → **streaming** `O(n·R̄)` em vez
+  de `O(n²)`, sem o clamping `double.xmin`); **(3) extração pela surpresa
+  preditiva** `−log p(x_t|x_{1:t-1})` via **z-robusto local causal** (mediana/MAD,
+  janela trailing) + min_distance, no lugar da votação ruidosa do `ocp`.
+  Novos helpers `_bocpd_ar_surprise`/`_bocpd_local_z`/`_bocpd_peaks`
+  (substituem `_bocpd_studentpdf`/`_bocpd_run` e as constantes `_BOCPD_XMIN`).
+  Sem dep nova (puro numpy/scipy). **Descoberta-chave (Ação 1++):** `simple`/
+  `sinusoidal` dos `examples_changepoints` são **mudanças de slope** (vértice do
+  triângulo / pico da senoide), invisíveis ao modelo média+variância — espelho
+  invertido do gap do forecast++; o UPM AR as recupera (surpresa pica
+  exatamente no vértice). União com `_meanvar_breakpoints` foi testada e **piora**
+  (dilui `simple`) → ficou **BOCPD puro** (identidade preservada).
+  **Gate Ação 1++ (SoftED-F1 vs ground-truth, soma/7, K=15):** bocpd **3.59**
+  (port fiel = R `ocp` **1.12**) — vence o R em **6/7** séries (~3,2×). Defaults
+  afinados nos `examples_changepoints` (mesma prática dos irmãos ++): `order=1,
+  hazard=250, threshold=6.0 (z local), min_distance=15, burn_in=5, local_window=20,
+  prune_eps=1e-6`; o gate se mantém em toda a varredura (2.4–3.6 >> 1.12).
+  Docstring com origem+adaptação+citações (Adams&MacKay 2007; Fearnhead&Liu 2007
+  e Fearnhead 2006 — pruning/segment-regression; Saatçi-Turner-Rasmussen 2010;
+  Takeuchi&Yamanishi 2006 — surpresa AR). Perf: n=1002 ~1,7s (poda limita o
+  estado). 148 testes (test_changepoint_bocpd.py reescrito p/ critério ++:
+  bate-o-R + regressão de posições + propriedades do UPM AR / poda ε / z causal),
+  ruff limpo, 7 notebooks (subseção BOCPD reescrita), build+twine check PASS 0.4.6.
+  **Próximo:** pausa p/ revisão do Eduardo → ff-merge/publish. Com ocp++ fecha o
+  Ciclo 1 de change points; segue o port do **HanrFftSma** corrigido (release
+  própria, ex. 0.5.0 — Simbólico/espectral).

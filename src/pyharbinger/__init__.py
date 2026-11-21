@@ -56,7 +56,7 @@ from .utils import (
     mas,
 )
 
-__version__ = "0.4.5"
+__version__ = "0.4.6"
 
 __all__ = [
     "HancMl",
