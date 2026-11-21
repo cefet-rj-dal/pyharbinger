@@ -383,13 +383,18 @@ revisão do Eduardo, ff-merge (mesma cadência da v1).
   (recycling: `serie - ts_sma` com comprimentos incompatíveis) → tratado à parte
   (fix no R + port, igual ao `hmu_pca`), decisão pendente com o Eduardo.
 - **0.4.0 — Change point estendido (nativos exatos).** `HcpCfLr`, `HcpScp`,
-  `HcpJoinpoint` (lógica pura lm/DP/correlação → paridade R exata). **Adiados para
-  0.4.1 (paridade sensível, refinar com Eduardo):** `HcpChow`/`HcpGft` (exigem portar
-  o Bai-Perron do `strucchange`), `HcpCfArima`/`HcpCfEts` (statsmodels ≠
-  `forecast::auto.arima`/`ets` → aproximado), `HcpBocpd` (nativo vs pacote `ocp`).
-  (`HcpWaypoint` segue no Ciclo 2 — torch.) **Todos os 5 serão implementação própria
-  (nativa), passando pelo gate da Ação 1** (medir diferença vs. o pacote de referência
-  e aceitar só se pequena) — ver *Iniciativa: back-implementation*.
+  `HcpJoinpoint` (lógica pura lm/DP/correlação → paridade R exata).
+- **0.4.x — back-implementations dos 5 adiados (UMA VERSÃO POR PACOTE de origem;
+  decisão Eduardo 2026-11-20).** Cada uma = implementação própria (nativa) passando
+  pelo gate da Ação 1 (medir diferença vs. o pacote de referência; aceitar só se
+  pequena). Componentes do mesmo pacote saem juntos:
+  - **0.4.1 — `strucchange`:** `HcpChow` + `HcpGft` (portar Bai-Perron/`breakpoints`;
+    chow via Fstats, gft via a fórmula).
+  - **0.4.2 — `forecast`:** `HcpCfArima` + `HcpCfEts` (ARIMA/ETS com seleção própria;
+    paridade aproximada declarada).
+  - **0.4.3 — `ocp`:** `HcpBocpd` (Adams&MacKay nativo, calibrado vs. `ocp`).
+  (`HcpWaypoint` segue no Ciclo 2 — torch.) Regra geral: **uma versão por pacote/
+  back-implementation**; o 2º componente do mesmo pacote reaproveita o core nativo.
 - **0.5.0 — Simbólico (motif/discord nativo).** SAX/xSAX: `TransSax`, `TransXsax`,
   `HmoSax`, `HmoXsax`, `HdisSax`. Embarca dataset `examples_motifs`.
 - **0.6.0 — Ensembles + visualização.** `HarEnsemble`, `HarEnsembleFuzzy` (+`fuzzify`) +
