@@ -29,6 +29,7 @@ import pandas as pd
 import ruptures as rpt
 from pytspredit import ts_data
 from scipy import stats
+from scipy.special import gammaln
 from statsmodels.tsa.exponential_smoothing.ets import ETSModel
 from statsmodels.tsa.statespace.sarimax import SARIMAX
 from statsmodels.tsa.stattools import kpss
@@ -39,6 +40,7 @@ from .utils import har_candidate_selection_highgroup, har_filter_boxplot, mas
 __all__ = [
     "HcpAmoc",
     "HcpBinseg",
+    "HcpBocpd",
     "HcpCfArima",
     "HcpCfEts",
     "HcpCfLr",
@@ -1057,3 +1059,238 @@ class HcpCfEts(_HcpChangeFinder):
             raise ValueError("No data was provided for computation")
         self._store_refs(serie)
         return self._changefinder(np.asarray(self.serie, dtype=float), self.sw_size)
+
+
+# --- hcp_bocpd (Bayesian Online Change Point Detection) ---------------------
+
+_BOCPD_XMIN = np.finfo(float).tiny          # R ``.Machine$double.xmin``
+_BOCPD_LOG_XMIN = np.log(_BOCPD_XMIN)
+
+
+def _bocpd_studentpdf(x, mu, var, nu):
+    """Student-t predictive density (port of ``ocp:::studentpdf``).
+
+    ``c * (1 + (x-mu)^2 / (nu*var))^(-(nu+1)/2)`` with
+    ``c = exp(lgamma(nu/2+0.5) - lgamma(nu/2)) / sqrt(nu*pi*var)``.
+    """
+    cc = np.exp(gammaln(nu / 2 + 0.5) - gammaln(nu / 2)) / np.sqrt(nu * np.pi * var)
+    return cc * (1.0 + (1.0 / (nu * var)) * (x - mu) ** 2) ** (-(nu + 1) / 2)
+
+
+def _bocpd_run(serie, hazard, m, k, a, b, cpthreshold, min_rlength,
+               max_rlength, trunc_rlim):
+    """Native reimplementation of ``ocp::onlineCPD`` (gaussian UPM, univariate)
+    plus the ``changepoint_lists`` voting of R ``hcp_bocpd``.
+
+    Reproduces the Adams & MacKay run-length posterior recursion with a
+    Normal-Inverse-Gamma conjugate prior (Student-t predictive), and the three
+    change-point extraction lists ``ocp`` maintains -- ``colmaxes`` (most likely
+    non-zero run length per step), ``threshcps`` (run lengths whose posterior
+    mass exceeds ``cpthreshold``) and ``maxCPs`` (the online MAP change-point
+    path, ``ocp:::findCPprobs``). Returns the normalised vote score per point.
+    """
+    serie = np.asarray(serie, dtype=float)
+    n = len(serie)
+    hz = 1.0 / hazard
+
+    # initOCPD: the single run length r=0 carries the prior.
+    prev_r = np.array([1.0])
+    mu_t = np.array([float(m)])
+    kappa_t = np.array([float(k)])
+    alpha_t = np.array([float(a)])
+    beta_t = np.array([float(b)])
+    probmaxes = [0.0, 0.0]
+    logprobcps = [None, [1]]
+    colmaxes = []
+    threshcps = []
+    maxcps = []
+
+    for t in range(1, n + 1):           # 1-based point index, mirrors R ``t``
+        x = serie[t - 1]
+        # Truncate the run-length vector (drops a negligible, oldest tail).
+        if len(prev_r) > min_rlength:
+            tail = np.cumsum(prev_r[::-1])[::-1]   # rev(cumsum(rev(prev_r)))
+            curr_r = prev_r[tail >= trunc_rlim]
+            if len(curr_r) > max_rlength:
+                curr_r = curr_r[:max_rlength]
+            if len(curr_r) < min_rlength:
+                curr_r = prev_r[:min_rlength]
+        else:
+            curr_r = prev_r
+        rlen = len(curr_r)
+
+        # Predictive probability of x for each run length (gaussianProb).
+        mu_l, kap_l = mu_t[:rlen], kappa_t[:rlen]
+        alp_l, bet_l = alpha_t[:rlen], beta_t[:rlen]
+        predvar = bet_l * (kap_l + 1) / (alp_l * kap_l)
+        nu = 2 * alp_l
+        pred_probs = np.log(_bocpd_studentpdf(x, mu_l, predvar, nu))
+
+        # Posterior update -> params of length rlen+1 (prior prepended).
+        beta2 = bet_l + kap_l * (x - mu_l) ** 2 / (2 * (kap_l + 1))
+        mu2 = (kap_l * mu_l + x) / (kap_l + 1)
+        mu_t = np.concatenate([[m], mu2])
+        beta_t = np.concatenate([[b], beta2])
+        kappa_t = np.concatenate([[k], kap_l + 1])
+        alpha_t = np.concatenate([[a], alp_l + 0.5])
+
+        # Run-length recursion (growth vs changepoint).
+        templogs = np.log(curr_r) + pred_probs
+        templogs = np.where(templogs < _BOCPD_LOG_XMIN, _BOCPD_LOG_XMIN, templogs)
+        temp2 = np.exp(templogs)
+        grow_r = temp2 * (1 - hz)
+        r0 = np.sum(temp2 * hz)
+        new_r = np.concatenate([[r0], grow_r])
+        new_r = new_r / np.sum(new_r)
+        if np.any(~np.isfinite(np.log(new_r))):
+            new_r = np.where(new_r < _BOCPD_XMIN, _BOCPD_XMIN, new_r)
+
+        # colmaxes: changepoint implied by the most likely non-zero run length.
+        tail_vals = new_r[1:]
+        mx = np.max(tail_vals)
+        p1 = int(np.argmax(new_r == mx)) + 1          # match(max, new_r), 1-based
+        cp_col = t + 2 - p1
+        if cp_col not in colmaxes:
+            colmaxes.append(cp_col)
+
+        # threshcps: run lengths whose posterior mass exceeds the threshold.
+        for i0 in np.where(tail_vals > cpthreshold)[0]:
+            cp = t + 1 - (i0 + 1)
+            if cp not in threshcps:
+                threshcps.append(cp)
+
+        # maxCPs: online MAP change-point path (findCPprobs).
+        prun = np.log(new_r)[::-1]
+        pprev = np.array(probmaxes[t - rlen: t + 1])
+        currprobs = prun + pprev
+        maxprob = float(np.max(currprobs))
+        maxstarttrunc = int(np.argmax(currprobs)) + 1     # 1-based
+        lpc_trunc = logprobcps[len(logprobcps) - rlen - 1: len(logprobcps)]
+        maxstart = (t - rlen) + maxstarttrunc
+        prev_entry = lpc_trunc[maxstarttrunc - 1]
+        base = [] if prev_entry is None else list(np.atleast_1d(prev_entry))
+        currcpstrunc = base + [maxstart]
+        probmaxes.append(maxprob)
+        logprobcps = lpc_trunc + [currcpstrunc]
+        maxcps = currcpstrunc
+
+        prev_r = new_r
+
+    # changepoint_lists voting (R ``hcp_bocpd`` detect): +1 per list, normalise.
+    cp_prob = np.zeros(n)
+    for lst in (colmaxes, threshcps, maxcps):
+        cps = np.array([int(c) for c in lst], dtype=int)
+        cps = cps[(cps > 1) & (cps <= n)]
+        for c in cps:
+            cp_prob[c - 1] += 1
+    if cp_prob.max() > 0:
+        cp_prob = cp_prob / cp_prob.max()
+    return cp_prob
+
+
+class HcpBocpd(Harbinger):
+    """Bayesian Online Change Point Detection (Python port of R ``hcp_bocpd``).
+
+    How it works / theory
+    ---------------------
+    BOCPD (Adams & MacKay, 2007) maintains, online, the posterior distribution
+    over the *run length* -- the time elapsed since the last change point. At
+    each step the run-length mass either **grows** (no change, weighted by
+    ``1 - 1/hazard``) or **resets** to zero (a change, weighted by ``1/hazard``),
+    with each hypothesis scored by its one-step predictive probability. Here the
+    per-run-length predictive model is the conjugate **Normal-Inverse-Gamma**
+    (unknown mean *and* variance), whose posterior predictive is a Student-t --
+    the ``gaussianUPM`` default of the R ``ocp`` package, with prior
+    ``(m, k, a, b) = (0, 0.01, 0.01, 1e-4)`` and a constant hazard ``1/hazard``.
+
+    Change points are extracted exactly as ``ocp``/``hcp_bocpd`` do: three lists
+    are accumulated over time -- ``colmaxes`` (the change point implied by the
+    most likely non-zero run length each step), ``threshcps`` (run lengths whose
+    posterior mass exceeds ``cpthreshold = 0.5``) and ``maxCPs`` (the online MAP
+    change-point path). Each candidate position gets one vote per list it appears
+    in; the votes are normalised by their maximum, the first ``burn_in`` points
+    are zeroed, positions scoring ``>= threshold`` are flagged, and finally
+    ``min_distance`` thins neighbouring detections.
+
+    Parameters
+    ----------
+    hazard:
+        Constant-hazard parameter; the prior change probability per step is
+        ``1 / hazard`` (R default ``100``).
+    threshold:
+        Vote-score threshold for flagging a change point. ``None`` uses ``0.5``
+        (R default): a position must appear in at least two of the three lists.
+    min_distance:
+        Minimum spacing (in samples) enforced between flagged change points.
+    burn_in:
+        Number of initial observations whose score is forced to zero.
+
+    References
+    ----------
+    - Adams RP, MacKay DJC (2007). Bayesian Online Changepoint Detection.
+      arXiv:0710.3742.
+    - Pagotto A (2019). ocp: Bayesian Online Changepoint Detection. R package.
+
+    Porting
+    -------
+    Mirrors ``hcp_bocpd.R``. Fidelity: adapted.
+    - Native (pure numpy/scipy) back-implementation of the R ``ocp`` backend
+      (``onlineCPD`` + ``findCPprobs``, gaussian UPM) -- ``ocp`` is only an R
+      ``Suggests`` dependency and has no maintained Python port. Verified
+      **EXACT** (identical detected indices) vs the real ``ocp`` backend on all
+      seven ``examples_changepoints`` series, including the long
+      ``increasing_amplitude`` (n=1002).
+    - Only the gaussian UPM (the R default) is ported; the ``ocp`` ``poisson``
+      model is out of scope.
+    - The negligible run-length ``truncRlim`` tail truncation is replicated so
+      the MAP path (``findCPprobs``) indexing matches ``ocp`` exactly.
+    """
+
+    def __init__(
+        self,
+        hazard: float = 100.0,
+        threshold: float | None = None,
+        min_distance: int = 5,
+        burn_in: int = 5,
+    ):
+        super().__init__()
+        self.hazard = hazard
+        self.threshold = threshold
+        self.min_distance = min_distance
+        self.burn_in = burn_in
+
+    def detect(self, serie, **kwargs):
+        if serie is None:
+            raise ValueError("No data was provided for computation")
+        self._store_refs(serie)
+        x = np.asarray(self.serie, dtype=float)
+        n = len(x)
+        if n == 0:
+            raise ValueError("No non-missing observations were provided.")
+
+        cp_prob = _bocpd_run(
+            x,
+            hazard=self.hazard,
+            m=0.0, k=0.01, a=0.01, b=1e-4,
+            cpthreshold=0.5,
+            min_rlength=1, max_rlength=10**4, trunc_rlim=_BOCPD_XMIN,
+        )
+
+        if self.burn_in and self.burn_in > 0:
+            cp_prob[: min(self.burn_in, n)] = 0.0
+
+        threshold = 0.5 if self.threshold is None else self.threshold
+        event = cp_prob >= threshold
+
+        if event.sum() > 1 and self.min_distance > 0:
+            idx = np.where(event)[0] + 1          # 1-based, mirrors R which(event)
+            keep = np.zeros(len(idx), dtype=bool)
+            last_kept = -np.inf
+            for i, j in enumerate(idx):
+                if (j - last_kept) >= self.min_distance:
+                    keep[i] = True
+                    last_kept = j
+            event = np.zeros(n, dtype=bool)
+            event[idx[keep] - 1] = True
+
+        return self._restore_refs(change_points=event, res=cp_prob, threshold=threshold)

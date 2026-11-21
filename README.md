@@ -58,7 +58,7 @@ Every detector extends `Harbinger` and returns a detection table with columns
 | **Core** | `Harbinger` (base contract), deviation / filter / candidate-selection utilities |
 | **Evaluation** | `HarEval` (hard), `HarEvalSoft` (SoftED, soft matching via the Hungarian algorithm) |
 | **Anomaly** | `HanrMl` (forecasting residuals, wraps a pytspredit regressor), `HanrFft`, `HanrFftAmoc`, `HanrFftBinseg`, `HanrFftAmocCusum`, `HanrFftBinsegCusum`, `HanrHistogram`, `HanrFbiad` |
-| **Change point** | `HcpAmoc`, `HcpBinseg`, `HcpPelt` (via `ruptures`), `HcpKswin`, `HcpPageHinkley`, `HcpCfLr`, `HcpScp`, `HcpJoinpoint`, `HcpChow`, `HcpGft` (native structural change), `HcpCfArima`, `HcpCfEts` (ChangeFinder, native forecast replacement) |
+| **Change point** | `HcpAmoc`, `HcpBinseg`, `HcpPelt` (via `ruptures`), `HcpKswin`, `HcpPageHinkley`, `HcpCfLr`, `HcpScp`, `HcpJoinpoint`, `HcpChow`, `HcpGft` (native structural change), `HcpCfArima`, `HcpCfEts` (ChangeFinder, native forecast replacement), `HcpBocpd` (Bayesian online, native ocp replacement) |
 | **Clustering** | `HanctKmeans` (anomalies / discords) |
 | **Classification** | `HancMl` (supervised; wraps a pydaltoolbox classifier) |
 | **Multivariate** | `HmuPca` (PCA reconstruction error) |
@@ -118,6 +118,13 @@ documented:
   full-ML AICc vs `forecast`'s CSS/ML approximation and stepwise path), so
   detections overlap substantially but are not identical — the documented
   tolerance for `forecast`'s auto-selection.
+- `HcpBocpd` is a **native** (pure numpy/scipy) re-implementation of R's `ocp`
+  backend — Bayesian Online Change Point Detection (Adams & MacKay, 2007) with a
+  Normal-Inverse-Gamma / Student-t predictive. `ocp` is only an R `Suggests`
+  dependency and has no maintained Python port, so native is the only faithful
+  path. It matches the real `ocp` backend **exactly** (identical detected
+  indices) on all seven example series, including the long `increasing_amplitude`
+  (n = 1002).
 
 ## Related DAL projects
 

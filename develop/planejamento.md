@@ -4,6 +4,31 @@
 > Segue o método validado em `pydaltoolbox` e `pytspredit` (ambos no PyPI).
 > Kickoff: [develop/PROMPT.md](PROMPT.md).
 
+## Convenção de documentação (Eduardo, 2026-11-21)
+
+**Toda classe Python deve trazer, no próprio docstring, (1) como o algoritmo
+funciona + base teórica e (2) as referências acadêmicas — espelhando os
+`@details` e `@references` do roxygen do pacote R.** Não basta descrever o
+comportamento ou as escolhas fiéis ao R; incluir uma seção `References:` com as
+citações copiadas do arquivo R correspondente. Vale para classes novas e para
+preencher as já existentes. (Mesma regra adotada no `pydaltoolbox`.)
+
+Além disso, **cada classe deve ter uma seção `Porting:` consistente e auditável**,
+registrando a fidelidade ao R:
+
+```
+Porting:
+    Mirrors ``<arquivo_r>.R``. Fidelity: exact|approximate|adapted.
+    - <cada adaptação/ajuste deliberado e o porquê>   # só quando approximate/adapted
+```
+
+**Apenas o nome do arquivo R** — sem número de versão e sem citar o pacote R (já se sabe
+de onde vem). Níveis de fidelidade: **exact** = comportamento igual ao R; **approximate**
+= mesmo algoritmo, mas diferenças numéricas menores (backend/solver/RNG diferente, ou
+aproxima um utilitário do R); **adapted** = mudança deliberada de comportamento,
+reimplementação nativa ou correção de bug do R. Consolidar nessa seção as notas de
+"Mirrors/replicates/approximates R" que hoje ficam soltas na prosa.
+
 ## Missão
 
 Portar o pacote R **`harbinger`** (detecção de eventos em séries temporais —
@@ -517,3 +542,35 @@ Ordem/escopo **a combinar com o Eduardo** (ele refina este ciclo em detalhe):
   increasing_amplitude n=1002 ~7s); testes de paridade usam séries curtas/médias.
   **Próximo:** pausa p/ revisão do Eduardo → ff-merge → (talvez) publicar. Depois:
   0.4.3 = `ocp` (HcpBocpd nativo) + port do HanrFftSma corrigido (release própria).
+
+- **2026-11-21 — 0.4.3 = `ocp` (nativo) IMPLEMENTADO** (branch
+  `milestone-9-changepoints-bocpd`, sai da main/0.4.2). `changepoint.py`:
+  `HcpBocpd` (Bayesian Online Change Point Detection, Adams & MacKay 2007).
+  Reimplementação **nativa** (puro numpy/scipy) da dependência R `ocp` (que o
+  harbinger usa só em *Suggests* via `requireNamespace`) — back-implementation
+  **P1** ("sem equivalente mantido em Python → nativo é a única via fiel").
+  Núcleo: posterior do *run length* com hazard constante `1/hazard` + modelo
+  preditivo conjugado Normal-Inverse-Gamma (média+variância desconhecidas →
+  Student-t), **espelhando o `gaussianUPM` do `ocp`** com prior
+  `(m,k,a,b)=(0, 0.01, 0.01, 1e-4)`. Port fiel do `ocp::onlineCPD` +
+  `findCPprobs` (recursão run-length + as 3 listas de extração `colmaxes`/
+  `threshcps`/`maxCPs`) + a votação do `hcp_bocpd` (vote por lista, normaliza
+  pelo máximo, burn_in/threshold 0.5/min_distance). Helpers
+  `_bocpd_studentpdf`/`_bocpd_run`; sem dep nova (puro numpy/scipy).
+  **Gate Ação 1 — EXATO:** instalei o `ocp` 0.1.1 do arquivo do CRAN (indisponível
+  para R 4.5.0 no CRAN atual) e rodei o `hcp_bocpd` do harbinger via
+  `pkgload::load_all` nas 7 séries de `examples_changepoints`; o port bate
+  **EXATO** (índices detectados idênticos) nas **7/7**, incluindo a longa
+  `increasing_amplitude` (n=1002, 60 CPs) e a `complex`. Só a UPM gaussiana (o
+  default do R) foi portada (a `poisson` do `ocp` ficou fora de escopo). A
+  truncagem `truncRlim` do run length foi replicada para o indexing do MAP
+  (`findCPprobs`) casar exatamente. 146 testes (+14, test_changepoint_bocpd.py),
+  ruff limpo, 7 notebooks (subseção BOCPD no changepoint), build + twine check
+  PASS 0.4.3. Por ser **um único componente de um único pacote de origem**
+  (`ocp`), fecha sozinho o 0.4.3 (regra "uma versão por pacote"). Refs R (0-based):
+  bocpd={simple:[8,13,18,23,28,33,38,59,69,74,79,84,89], sinusoidal:[7,23,32,37,
+  60,69,74,89], incremental:[128,175], abrupt:[100,149], volatility:[123,149],
+  complex:[9,101,107,200,311,329,351,366,372,385,390,410]} (increasing_amplitude:
+  60 CPs, ver teste). **Próximo:** pausa p/ revisão do Eduardo → ff-merge →
+  (talvez) publicar. Fecha a trilha 0.4.x (strucchange ✅ / forecast ✅ / ocp ✅).
+  Depois: port do HanrFftSma corrigido (oferecer como release própria, ex. 0.5.0).

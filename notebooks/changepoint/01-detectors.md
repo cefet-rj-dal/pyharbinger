@@ -159,3 +159,34 @@ for name, det_model in [("cf_arima", HcpCfArima()), ("cf_ets", HcpCfEts())]:
 > stepwise path), so detections overlap substantially but are not identical. This
 > is the documented tolerance for `forecast`'s auto-selection — the same
 > acceptance criterion used for PELT / joinpoint / ELM.
+
+## Bayesian Online Change Point Detection (native ocp replacement)
+
+`HcpBocpd` is the Python port of R's `hcp_bocpd`. It implements **Bayesian
+Online Change Point Detection** (Adams & MacKay, 2007): it tracks, online, the
+posterior over the *run length* (time since the last change), which at each step
+either **grows** (no change, weight `1 − 1/hazard`) or **resets** to zero (a
+change, weight `1/hazard`), each hypothesis scored by its one-step predictive
+probability under a conjugate **Normal-Inverse-Gamma** model (unknown mean and
+variance → Student-t predictive).
+
+It is a **native** (pure numpy/scipy) back-implementation of the R `ocp`
+package, which R uses only as a `Suggests` dependency and which has no maintained
+Python port — the back-implementation initiative's P1 case. Change points are
+extracted exactly as `ocp`/`hcp_bocpd` do: three lists (`colmaxes`, `threshcps`,
+`maxCPs`) vote per position, the votes are normalised, an initial `burn_in` is
+zeroed, positions scoring `≥ threshold` are flagged, and `min_distance` thins
+neighbours.
+
+```python
+from pyharbinger import HcpBocpd
+
+det = HcpBocpd().detect(serie)
+print("change points at:", det.index[det["event"]].tolist())
+```
+
+> **Parity note (Action-1 gate).** `HcpBocpd` matches the real `ocp` backend
+> (CRAN-archive `ocp` 0.1.1, driven through R `hcp_bocpd`) **exactly** —
+> identical detected indices — on all seven example series, including the long
+> `increasing_amplitude` (n = 1002). Only the gaussian UPM (the R default) is
+> ported.
