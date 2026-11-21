@@ -152,3 +152,40 @@ for name, det_model in [("chow", HcpChow()), ("gft", HcpGft())]:
 > series and `HcpChow` on 6 of 7; the remaining `simple` (ramp) and `sinusoidal`
 > cases are ties — segmentations with an identical fit objective, so R and the
 > native implementation pick equally optimal but different positions.
+
+## ChangeFinder with ARIMA / ETS (native forecast replacement)
+
+`HcpCfArima` and `HcpCfEts` are the ChangeFinder detectors that model the
+series with a one-step-ahead forecaster and score the residuals. They are
+**native re-implementations** that replace R's dependency on the `forecast`
+package (`auto.arima` / `ets`) — part of the back-implementation initiative. The
+models are fitted with `statsmodels`, but the order/model **selection** (the
+part of `forecast` that drives the result) is ours, so parity is under our
+control.
+
+* `HcpCfArima` — ChangeFinder with a natively order-selected ARIMA model
+  (Hyndman–Khandakar stepwise AICc search; KPSS for the differencing order).
+* `HcpCfEts` — ChangeFinder with a natively selected ETS model (AICc over the
+  non-seasonal ETS family).
+
+
+```python
+from pyharbinger import HcpCfArima, HcpCfEts
+
+for name, det_model in [("cf_arima", HcpCfArima()), ("cf_ets", HcpCfEts())]:
+    det = det_model.detect(serie)
+    print(f"{name:9s} change points at: {det.index[det['event']].tolist()}")
+```
+
+    cf_arima  change points at: [3, 50, 100, 102, 136]
+    cf_ets    change points at: [13, 100, 109, 136, 194]
+    
+
+> **Parity note (Action-1 gate).** `HcpCfEts` matches R `ets()` **exactly** on
+> all seven example series. `HcpCfArima` matches R's integration order `d` on all
+> seven series and matches detections exactly on the well-conditioned ones
+> (`simple`, `complex`); on the others the `(p, q)` stepwise order diverges from
+> `forecast` (statsmodels full-ML AICc vs `forecast`'s CSS/ML approximation and
+> stepwise path), so detections overlap substantially but are not identical. This
+> is the documented tolerance for `forecast`'s auto-selection — the same
+> acceptance criterion used for PELT / joinpoint / ELM.

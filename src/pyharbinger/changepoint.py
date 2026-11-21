@@ -22,11 +22,16 @@ Two groups are provided:
 """
 from __future__ import annotations
 
+import warnings
+
 import numpy as np
 import pandas as pd
 import ruptures as rpt
 from pytspredit import ts_data
 from scipy import stats
+from statsmodels.tsa.exponential_smoothing.ets import ETSModel
+from statsmodels.tsa.statespace.sarimax import SARIMAX
+from statsmodels.tsa.stattools import kpss
 
 from .harbinger import Harbinger, as_series_array
 from .utils import har_candidate_selection_highgroup, har_filter_boxplot, mas
@@ -34,6 +39,8 @@ from .utils import har_candidate_selection_highgroup, har_filter_boxplot, mas
 __all__ = [
     "HcpAmoc",
     "HcpBinseg",
+    "HcpCfArima",
+    "HcpCfEts",
     "HcpCfLr",
     "HcpChow",
     "HcpGft",
@@ -738,3 +745,315 @@ class HcpGft(Harbinger):
             if 1 <= bp <= n:
                 cp[bp - 1] = True
         return self._restore_refs(change_points=cp)
+
+
+# --- hcp_cf_arima / hcp_cf_ets (ChangeFinder with ARIMA / ETS) ----------------
+#
+# These are NATIVE re-implementations that replace R's dependency on the
+# ``forecast`` package (``auto.arima`` / ``ets``) -- the back-implementation
+# initiative's P2 case ("auto-selection that breaks parity"). The forecasting
+# models are fitted with the canonical, maintained ``statsmodels`` library
+# (``SARIMAX`` / ``ETSModel``), but the *order/model selection* -- the part of
+# ``forecast`` whose stepwise heuristics and defaults drive the result -- is
+# re-implemented here so parity is under our control.
+#
+# Parity (Action-1 gate, measured on ``examples_changepoints``):
+#   * CF-ETS: EXACT match with R ``ets()`` on all 7 series.
+#   * CF-ARIMA: the KPSS integration order ``d`` matches R ``ndiffs`` on all 7
+#     series (we use ``forecast``'s short-lag rule ``floor(3*sqrt(n)/13)``); the
+#     ``(p, q)`` stepwise order diverges from ``forecast`` (statsmodels full-ML
+#     AICc vs ``forecast``'s CSS/ML approximation + stepwise path), so detections
+#     match exactly on well-conditioned series (``simple``, ``complex``) and
+#     overlap substantially elsewhere. This is the documented tolerance -- the
+#     same acceptance criterion used for PELT / joinpoint / ELM.
+
+
+def _arima_trend(d: int, drift: bool) -> str:
+    """statsmodels ``trend`` for an ARIMA order (mirrors forecast drift/mean)."""
+    if d == 0:
+        return "c" if drift else "n"
+    if d == 1:
+        return "t" if drift else "n"
+    return "n"
+
+
+def _kpss_ndiffs(y: np.ndarray, max_d: int = 2, alpha: float = 0.05) -> int:
+    """Number of differences by successive KPSS tests (forecast ``ndiffs`` rule).
+
+    Uses the short-lag truncation ``floor(3*sqrt(n)/13)`` that ``forecast`` uses
+    by default, which reproduces R's integration order on the example series.
+    """
+    x = np.asarray(y, dtype=float)
+    d = 0
+    while d < max_d and len(x) > 10:
+        nlags = int(3 * np.sqrt(len(x)) / 13)
+        try:
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore")
+                _, pvalue, *_ = kpss(x, regression="c", nlags=nlags)
+        except (ValueError, OverflowError):
+            break
+        if pvalue >= alpha:  # fail to reject stationarity -> stop differencing
+            break
+        x = np.diff(x)
+        d += 1
+    return d
+
+
+def _fit_sarimax(y: np.ndarray, p: int, d: int, q: int, drift: bool):
+    """Fit a SARIMAX model; return (aicc, results) or (inf, None) on failure."""
+    try:
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            res = SARIMAX(
+                y,
+                order=(p, d, q),
+                trend=_arima_trend(d, drift),
+                enforce_stationarity=False,
+                enforce_invertibility=False,
+            ).fit(disp=False, maxiter=50, method="lbfgs")
+        aicc = float(res.aicc)
+        if not np.isfinite(aicc):
+            return np.inf, None
+        return aicc, res
+    except (ValueError, np.linalg.LinAlgError, IndexError):
+        return np.inf, None
+
+
+def _auto_arima(
+    y: np.ndarray,
+    max_p: int = 5,
+    max_q: int = 5,
+    max_d: int = 2,
+    max_order: int = 5,
+) -> tuple[np.ndarray, tuple[int, int, int, bool]]:
+    """Native Hyndman-Khandakar stepwise ARIMA selection by AICc.
+
+    Returns the one-step (innovation) residuals of the chosen model and its
+    ``(p, d, q, drift)`` order. Replaces ``forecast::auto.arima``.
+    """
+    y = np.asarray(y, dtype=float)
+    d = _kpss_ndiffs(y, max_d=max_d)
+    allow_drift = d <= 1
+
+    cache: dict[tuple[int, int, bool], tuple[float, object]] = {}
+
+    def ev(p: int, q: int, drift: bool):
+        key = (p, q, drift)
+        if key not in cache:
+            cache[key] = _fit_sarimax(y, p, d, q, drift)
+        return cache[key]
+
+    best_aicc, best_res, best_key = np.inf, None, None
+    for p, q in [(2, 2), (0, 0), (1, 0), (0, 1)]:
+        for drift in ([True, False] if allow_drift else [False]):
+            if p + q > max_order:
+                continue
+            aicc, res = ev(p, q, drift)
+            if res is not None and aicc < best_aicc:
+                best_aicc, best_res, best_key = aicc, res, (p, q, drift)
+
+    if best_res is None:  # degenerate fallback
+        _, res = ev(0, 0, False)
+        return (np.asarray(res.resid, dtype=float) if res is not None
+                else np.zeros(len(y))), (0, d, 0, False)
+
+    improved = True
+    while improved:
+        improved = False
+        p, q, drift = best_key
+        neighbors = [
+            (p + dp, q + dq, drift)
+            for dp in (-1, 0, 1)
+            for dq in (-1, 0, 1)
+            if 0 <= p + dp <= max_p and 0 <= q + dq <= max_q and p + dp + q + dq <= max_order
+        ]
+        if allow_drift:
+            neighbors.append((p, q, not drift))
+        for np_, nq_, dr in neighbors:
+            aicc, res = ev(np_, nq_, dr)
+            if res is not None and aicc < best_aicc - 1e-10:
+                best_aicc, best_res, best_key = aicc, res, (np_, nq_, dr)
+                improved = True
+
+    p, q, drift = best_key
+    return np.asarray(best_res.resid, dtype=float), (p, d, q, drift)
+
+
+def _auto_ets(y: np.ndarray) -> np.ndarray:
+    """Native ETS model selection by AICc; returns residuals. Replaces R ``ets``.
+
+    Searches the non-seasonal ETS family (error in {add, mul}, trend in
+    {none, add, add+damped}); multiplicative error is only tried on strictly
+    positive data, mirroring ``forecast::ets``.
+    """
+    y = np.asarray(y, dtype=float)
+    errors = ["add", "mul"] if np.all(y > 0) else ["add"]
+    best_aicc, best_res = np.inf, None
+    for error in errors:
+        for trend in [None, "add"]:
+            for damped in ([False, True] if trend else [False]):
+                try:
+                    with warnings.catch_warnings():
+                        warnings.simplefilter("ignore")
+                        res = ETSModel(
+                            y, error=error, trend=trend, damped_trend=damped, seasonal=None
+                        ).fit(disp=False, maxiter=100)
+                    aicc = float(res.aicc)
+                    if np.isfinite(aicc) and aicc < best_aicc:
+                        best_aicc, best_res = aicc, res
+                except (ValueError, np.linalg.LinAlgError):
+                    continue
+    if best_res is None:
+        best_res = ETSModel(y, error="add", trend=None, seasonal=None).fit(disp=False)
+    return np.asarray(best_res.resid, dtype=float)
+
+
+class _HcpChangeFinder(Harbinger):
+    """Shared two-stage ChangeFinder machinery (score residuals, smooth, re-score).
+
+    Subclasses provide :meth:`_stage1_resid` (residuals of the model fitted to the
+    series, used for anomalies) and :meth:`_stage2_resid` (residuals of the model
+    re-fitted to the smoothed residual signal, used for change points).
+    """
+
+    def _stage1_resid(self, x: np.ndarray) -> np.ndarray:  # pragma: no cover
+        raise NotImplementedError
+
+    def _stage2_resid(self, y: np.ndarray) -> np.ndarray:  # pragma: no cover
+        raise NotImplementedError
+
+    def _changefinder(self, x: np.ndarray, sw: int):
+        n = len(x)
+
+        res = self.har_distance(self._stage1_resid(x))
+        outliers = self.har_outliers(res)
+        selection = self.har_outliers_check(outliers, res, x)
+        anomalies = np.asarray(selection.mask, dtype=bool).copy()
+        anomalies[:sw] = False
+
+        y = mas(res, sw)
+        u = self.har_distance(self._stage2_resid(y))
+        u = mas(u, sw)
+        cp_outliers = self.har_outliers(u)
+        cp_selection = self.har_outliers_check(cp_outliers, u, u)
+        cp = np.asarray(cp_selection.mask, dtype=bool).copy()
+        cp[:sw] = False
+        cp = np.concatenate([np.zeros(n - len(u), dtype=bool), cp])
+
+        return self._restore_refs(anomalies=anomalies, change_points=cp, res=res)
+
+
+class HcpCfArima(_HcpChangeFinder):
+    """ChangeFinder using ARIMA (native port of R ``hcp_cf_arima``).
+
+    Two-stage ChangeFinder: an ARIMA model (order chosen natively, replacing
+    ``forecast::auto.arima``) is fitted to the series and its one-step residuals
+    are scored for anomalies; the residual signal is then smoothed (moving
+    average), re-fitted with a fresh ARIMA, and re-scored to flag change points.
+
+    The order selection is a native Hyndman-Khandakar stepwise AICc search; the
+    models are fitted with ``statsmodels`` ``SARIMAX``. Parity with R is EXACT in
+    the integration order ``d`` and on well-conditioned series; the ``(p, q)``
+    selection may diverge from ``forecast`` (documented Action-1 tolerance).
+
+    Parameters
+    ----------
+    sw_size:
+        Sliding-window size for the moving-average smoothing / warm-up. When
+        ``None`` it is set at fit time to ``max(p, d + 1, q)`` of the selected
+        order (R default).
+    max_p, max_q, max_d, max_order:
+        Search bounds for the order selection (``forecast`` defaults).
+    """
+
+    def __init__(
+        self,
+        sw_size: int | None = None,
+        max_p: int = 5,
+        max_q: int = 5,
+        max_d: int = 2,
+        max_order: int = 5,
+    ):
+        super().__init__()
+        self.sw_size = sw_size
+        self.max_p = max_p
+        self.max_q = max_q
+        self.max_d = max_d
+        self.max_order = max_order
+        self.order: tuple[int, int, int, bool] | None = None
+
+    def fit(self, serie, **kwargs) -> HcpCfArima:
+        if serie is None:
+            raise ValueError("No data was provided for computation")
+        x = as_series_array(serie)
+        x = x[~np.isnan(x)].astype(float)
+        _, order = self._auto(x)
+        self.order = order
+        p, d, q, _ = order
+        if self.sw_size is None:
+            self.sw_size = max(p, d + 1, q)
+        return self
+
+    def _auto(self, y):
+        return _auto_arima(
+            y, max_p=self.max_p, max_q=self.max_q, max_d=self.max_d, max_order=self.max_order
+        )
+
+    def _stage1_resid(self, x):
+        # Use the order selected at fit time (refit, fallback to auto) -- mirrors
+        # R's detect() which fits Arima(fixed order) and falls back to auto.arima.
+        if self.order is not None:
+            p, d, q, drift = self.order
+            _, res = _fit_sarimax(x, p, d, q, drift)
+            if res is not None:
+                return np.asarray(res.resid, dtype=float)
+        resid, _ = self._auto(x)
+        return resid
+
+    def _stage2_resid(self, y):
+        resid, _ = self._auto(y)
+        return resid
+
+    def detect(self, serie, **kwargs):
+        if serie is None:
+            raise ValueError("No data was provided for computation")
+        self._store_refs(serie)
+        if self.order is None or self.sw_size is None:
+            self.fit(self.serie)
+        return self._changefinder(np.asarray(self.serie, dtype=float), self.sw_size)
+
+
+class HcpCfEts(_HcpChangeFinder):
+    """ChangeFinder using ETS (native port of R ``hcp_cf_ets``).
+
+    Two-stage ChangeFinder: an ETS model (model chosen natively, replacing
+    ``forecast::ets``) is fitted to the series and its residuals are scored for
+    anomalies; the residual signal is then smoothed, re-fitted with a fresh ETS,
+    and re-scored to flag change points.
+
+    The model selection is a native AICc search over the non-seasonal ETS family;
+    the models are fitted with ``statsmodels`` ``ETSModel``. Parity with R
+    ``ets()`` is EXACT on the example series.
+
+    Parameters
+    ----------
+    sw_size:
+        Sliding-window size for the moving-average smoothing / warm-up.
+    """
+
+    def __init__(self, sw_size: int = 7):
+        super().__init__()
+        self.sw_size = sw_size
+
+    def _stage1_resid(self, x):
+        return _auto_ets(x)
+
+    def _stage2_resid(self, y):
+        return _auto_ets(y)
+
+    def detect(self, serie, **kwargs):
+        if serie is None:
+            raise ValueError("No data was provided for computation")
+        self._store_refs(serie)
+        return self._changefinder(np.asarray(self.serie, dtype=float), self.sw_size)

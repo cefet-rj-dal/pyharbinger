@@ -490,3 +490,30 @@ Ordem/escopo **a combinar com o Eduardo** (ele refina este ciclo em detalhe):
   O(n³·k) — lento em séries longas (increasing_amplitude n=1002); testes usam só as
   curtas. 82 testes (+18), ruff limpo, 7 notebooks. **Adiados p/ 0.4.1:** chow, gft,
   cf_arima, cf_ets, bocpd (paridade sensível — ver bullet do 0.4.0).
+
+- **2026-11-21 — 0.4.1 = `strucchange` (nativo) — MERGED na main.** Branch
+  `milestone-7-changepoints-strucchange` (commit `bd6f4c6`), ff-merge na main após
+  revisão do Eduardo (não publicado no PyPI). `HcpChow` + `HcpGft` nativos
+  (Bai-Perron DP + BIC do `strucchange` reverse-engenheirado). **Ação 1:** GFT exato
+  em 5/7, Chow 6/7; `simple`/`sinusoidal` são empates (mesmo objetivo de ajuste).
+  98 testes.
+
+- **2026-11-21 — 0.4.2 = `forecast` (nativo) IMPLEMENTADO** (branch
+  `milestone-8-changepoints-forecast`, sai da main/0.4.1). `changepoint.py`:
+  `HcpCfArima` + `HcpCfEts` (ChangeFinder de 2 estágios com previsão um-passo
+  ARIMA/ETS, pontuando resíduos). Reimplementação **nativa** da dependência R
+  `forecast::auto.arima`/`ets` (back-implementation P2 = "auto-seleção quebra
+  paridade"): modelos ajustados via `statsmodels` (`SARIMAX`/`ETSModel`), mas a
+  **seleção de ordem/modelo é nossa** (auto.arima = stepwise Hyndman-Khandakar por
+  AICc + `d` por KPSS com lag `floor(3·√n/13)` do forecast; ets = busca AICc na
+  família não-sazonal). `statsmodels>=0.14` agora é dep explícita (já era transitiva
+  via pytspredit). **Gate Ação 1 (examples_changepoints):** `HcpCfEts` bate **EXATO**
+  com R `ets()` nas 7 séries; `HcpCfArima` tem `d` EXATO nas 7 e detecções exatas nas
+  bem-condicionadas (`simple` ordem (0,2,0), `complex`), mas a seleção `(p,q)` diverge
+  do forecast (ML-completo do statsmodels vs aproximação CSS/ML + caminho stepwise do
+  forecast) → sobreposição parcial nas demais (tolerância documentada, mesmo critério
+  de PELT/joinpoint/ELM). 118 testes (+20), ruff limpo, 7 notebooks, build + twine
+  check PASS, versão 0.4.2. **Perf:** cf_arima é stepwise (lento em séries longas:
+  increasing_amplitude n=1002 ~7s); testes de paridade usam séries curtas/médias.
+  **Próximo:** pausa p/ revisão do Eduardo → ff-merge → (talvez) publicar. Depois:
+  0.4.3 = `ocp` (HcpBocpd nativo) + port do HanrFftSma corrigido (release própria).

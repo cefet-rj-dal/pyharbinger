@@ -58,7 +58,7 @@ Every detector extends `Harbinger` and returns a detection table with columns
 | **Core** | `Harbinger` (base contract), deviation / filter / candidate-selection utilities |
 | **Evaluation** | `HarEval` (hard), `HarEvalSoft` (SoftED, soft matching via the Hungarian algorithm) |
 | **Anomaly** | `HanrMl` (forecasting residuals, wraps a pytspredit regressor), `HanrFft`, `HanrFftAmoc`, `HanrFftBinseg`, `HanrFftAmocCusum`, `HanrFftBinsegCusum`, `HanrHistogram`, `HanrFbiad` |
-| **Change point** | `HcpAmoc`, `HcpBinseg`, `HcpPelt` (via `ruptures`), `HcpKswin`, `HcpPageHinkley`, `HcpCfLr`, `HcpScp`, `HcpJoinpoint`, `HcpChow`, `HcpGft` (native structural change) |
+| **Change point** | `HcpAmoc`, `HcpBinseg`, `HcpPelt` (via `ruptures`), `HcpKswin`, `HcpPageHinkley`, `HcpCfLr`, `HcpScp`, `HcpJoinpoint`, `HcpChow`, `HcpGft` (native structural change), `HcpCfArima`, `HcpCfEts` (ChangeFinder, native forecast replacement) |
 | **Clustering** | `HanctKmeans` (anomalies / discords) |
 | **Classification** | `HancMl` (supervised; wraps a pydaltoolbox classifier) |
 | **Multivariate** | `HmuPca` (PCA reconstruction error) |
@@ -109,6 +109,15 @@ documented:
   `HcpGft` matches R exactly on the well-conditioned series and `HcpChow` on 6 of
   7; the remaining `simple` (ramp) and `sinusoidal` cases are ties with an
   identical fit objective, not disagreements.
+- `HcpCfArima` and `HcpCfEts` are **native re-implementations** of R's `forecast`
+  backend (`auto.arima` / `ets`): the models are fitted with `statsmodels`, but
+  the order/model *selection* is ours. `HcpCfEts` matches R `ets()` exactly on all
+  example series. `HcpCfArima` matches R's integration order `d` on all series and
+  matches detections exactly on the well-conditioned ones (`simple`, `complex`);
+  elsewhere the `(p, q)` stepwise selection diverges from `forecast` (statsmodels
+  full-ML AICc vs `forecast`'s CSS/ML approximation and stepwise path), so
+  detections overlap substantially but are not identical — the documented
+  tolerance for `forecast`'s auto-selection.
 
 ## Related DAL projects
 

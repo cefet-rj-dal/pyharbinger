@@ -23,6 +23,8 @@ from .anomaly import (
 from .changepoint import (
     HcpAmoc,
     HcpBinseg,
+    HcpCfArima,
+    HcpCfEts,
     HcpCfLr,
     HcpChow,
     HcpGft,
@@ -53,7 +55,7 @@ from .utils import (
     mas,
 )
 
-__version__ = "0.4.1"
+__version__ = "0.4.2"
 
 __all__ = [
     "HancMl",
@@ -71,6 +73,8 @@ __all__ = [
     "Harbinger",
     "HcpAmoc",
     "HcpBinseg",
+    "HcpCfArima",
+    "HcpCfEts",
     "HcpCfLr",
     "HcpChow",
     "HcpGft",
