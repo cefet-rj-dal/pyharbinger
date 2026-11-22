@@ -38,6 +38,7 @@ from .changepoint import (
 from .classification import HancMl
 from .clustering import HanctKmeans
 from .evaluation import HarEval, HarEvalSoft
+from .ensemble import HarEnsembleFuzzy
 from .harbinger import Harbinger
 from .multivariate import HmuPca
 from .utils import (
@@ -56,7 +57,7 @@ from .utils import (
     mas,
 )
 
-__version__ = "0.4.6"
+__version__ = "0.4.7"
 
 __all__ = [
     "HancMl",
@@ -71,6 +72,7 @@ __all__ = [
     "HanrMl",
     "HarEval",
     "HarEvalSoft",
+    "HarEnsembleFuzzy",
     "Harbinger",
     "HcpAmoc",
     "HcpBinseg",
