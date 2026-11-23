@@ -18,7 +18,7 @@ print("ground-truth anomaly at:", dataset.index[event].tolist())
 ```
 
     ground-truth anomaly at: [49]
-    
+
 
 ## Anomalies (seq = 1)
 
@@ -36,7 +36,7 @@ print(model.evaluate(det, event)["confMatrix"])
                      event_TRUE  event_FALSE
     detection_TRUE            1            0
     detection_FALSE           0          100
-    
+
 
 ## Discords (seq > 1)
 

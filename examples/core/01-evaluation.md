@@ -73,9 +73,9 @@ print(f"\nprecision={hard['precision']:.3f}  recall={hard['recall']:.3f}  F1={ha
                      event_TRUE  event_FALSE
     detection_TRUE            3            3
     detection_FALSE           1            8
-    
+
     precision=0.500  recall=0.750  F1=0.600
-    
+
 
 ## Soft evaluation (SoftED)
 
@@ -91,4 +91,4 @@ print(f"precision={soft['precision']:.3f}  recall={soft['recall']:.3f}  F1={soft
 
     TPs=3.667  FPs=2.333  FNs=0.333
     precision=0.611  recall=0.917  F1=0.733
-    
+

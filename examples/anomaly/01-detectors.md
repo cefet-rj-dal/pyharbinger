@@ -19,7 +19,7 @@ print("ground-truth anomaly at:", dataset.index[event].tolist())
 ```
 
     ground-truth anomaly at: [49]
-    
+
 
 ## HanrFft — high-pass FFT filtering
 
@@ -36,7 +36,7 @@ print(HanrFft().evaluate(det, event)["confMatrix"])
                      event_TRUE  event_FALSE
     detection_TRUE            1            0
     detection_FALSE           0          100
-    
+
 
 ## FFT hybrids — spectral change-point cutoff
 
@@ -64,7 +64,7 @@ for name, det_model in [
     fft_binseg         detected: [49]
     fft_amoc_cusum     detected: [49]
     fft_binseg_cusum   detected: [49]
-    
+
 
 ## HanrHistogram — histogram density
 
@@ -97,7 +97,7 @@ print("detected:", det.index[det["event"]].tolist())
 ```
 
     detected: [49]
-    
+
 
 ## HanrMl — forecasting residuals
 
@@ -121,4 +121,4 @@ print(model.evaluate(det, event)["confMatrix"])
                      event_TRUE  event_FALSE
     detection_TRUE            1            0
     detection_FALSE           0          100
-    
+

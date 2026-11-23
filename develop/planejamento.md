@@ -59,7 +59,7 @@ unificado de detecção + avaliação de eventos.
 - Adapters finos e fiéis ao backend R; **comparar R vs Python** a cada passo.
 - Layout `src/pyharbinger/`, build hatchling, deps mínimas.
 - 3 camadas: `pytest` (unit) + integração + **documentação executável**
-  (notebooks jupytext → `examples/` via `tools/build_examples.py`; um exemplo por
+  (notebooks jupytext → `examples/` via `notebooks/conversor.py`; um exemplo por
   classe, **agrupados por família** num notebook).
 - `develop/` excluída do sdist. Sempre verde (`ruff` + `pytest` + build de exemplos).
 - Git: branch por milestone (cada um saindo do anterior) → push → Eduardo revisa no
@@ -108,7 +108,7 @@ from pytspredit import TsData, ts_projection, TsReg, ...    # janelas e regresso
 ## Milestones — PROPOSTA
 
 - **M0 — Scaffolding.** `pyproject` (deps pydaltoolbox+pytspredit), `src/pyharbinger/`,
-  `tools/build_examples.py`, `develop/`. Extrair datasets do R (`examples_anomalies`,
+  `notebooks/conversor.py`, `develop/`. Extrair datasets do R (`examples_anomalies`,
   `examples_changepoints`, `examples_motifs`, `examples_harbinger`) via `Rscript` →
   CSV em `src/pyharbinger/data/`, verificando numericamente.
 - **M1 — Núcleo + Avaliação.** `Harbinger` base + `detect` + utils (desvios L1/L2/Huber,
@@ -136,7 +136,7 @@ from pytspredit import TsData, ts_projection, TsReg, ...    # janelas e regresso
 - **2026-11-18** — Análise do R concluída; escopo e cadência confirmados com o Eduardo.
 - **2026-11-18 — M0 DONE** (branch `milestone-0-scaffolding`). `pyproject` (deps
   pydaltoolbox+pytspredit+numpy/pandas/sklearn/scipy/ruptures), `src/pyharbinger/`,
-  `tools/build_examples.py`, `develop/`. Datasets `examples_anomalies` (10 séries) e
+  `notebooks/conversor.py`, `develop/`. Datasets `examples_anomalies` (10 séries) e
   `examples_changepoints` (7 séries) extraídos do R → CSVs tidy em
   `src/pyharbinger/data/`, verificados numericamente (paridade exata com o R).
   `datasets.py` + `__init__`. 5 testes verdes, ruff limpo, 1 notebook de exemplo

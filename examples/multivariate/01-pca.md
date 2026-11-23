@@ -57,7 +57,7 @@ print("detected (idx):", det.index[det["event"]].tolist())
 
     max |residual|: 1.054
     detected (idx): [49]
-    
+
 
 You can also fix the number of retained components explicitly:
 
@@ -68,7 +68,7 @@ print("detected (idx):", det.index[det["event"]].tolist())
 ```
 
     detected (idx): [49]
-    
+
 
 > **Note.** A row is considered present only when *all* its columns are
 > non-missing (mirroring R's `har_store_refs`). Missing rows are restored to the

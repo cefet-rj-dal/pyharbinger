@@ -37,7 +37,7 @@ print("ground-truth events in test:", np.where(test["event"].to_numpy() == "TRUE
 ```
 
     ground-truth events in test: [9, 20]
-    
+
 
 ## Fit a classifier and detect
 
@@ -56,7 +56,7 @@ print(detection[detection["event"]])
         idx  event     type
     9     9   True  anomaly
     20   20   True  anomaly
-    
+
 
 ## Evaluate
 
@@ -71,7 +71,7 @@ print("F1:", metrics["F1"])
     detection_TRUE            2            0
     detection_FALSE           0           19
     F1: 1.0
-    
+
 
 > **Parity note.** On this example the detections match R's `hanc_ml` exactly
 > (events at positions 10 and 21). The class *probabilities* themselves can

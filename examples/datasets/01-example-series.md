@@ -53,7 +53,7 @@ simple.head()
 
     shape: (101, 2)
     number of events: 1
-    
+
 
 
 
@@ -111,7 +111,7 @@ cp.head()
 
     shape: (101, 2)
     change-point indices: [49]
-    
+
 
 
 

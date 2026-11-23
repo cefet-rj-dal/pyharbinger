@@ -41,7 +41,7 @@ Idênticas às do pydaltoolbox/pytspredit — resumo:
 - **Adapters finos** fiéis ao backend R; **comparar R vs Python** nos pontos sensíveis.
 - **Layout `src/pyharbinger/`**, `pyproject` hatchling, deps mínimas.
 - **3 camadas:** `pytest` unit + integração + **documentação executável** (notebooks
-  jupytext → `examples/` via `tools/build_examples.py`; **um exemplo didático por classe**,
+  jupytext → `examples/` via `notebooks/conversor.py`; **um exemplo didático por classe**,
   com objetivo + referência + `fit`/`detect`/`evaluate`).
 - **`develop/`** para material de dev (este PROMPT, planejamento.md, deploy.md),
   excluída do sdist (copie a config de `[tool.hatch.build.targets.sdist]` do pydaltoolbox).
@@ -109,7 +109,7 @@ avalie como extras opcionais.
 
 ## 6. Roadmap sugerido (em fases/sub-blocos, pause a cada um)
 
-0. Scaffolding (deps `pydaltoolbox`+`pytspredit`), `src/`, `develop/`, `tools/build_examples.py`.
+0. Scaffolding (deps `pydaltoolbox`+`pytspredit`), `src/`, `develop/`, `notebooks/conversor.py`.
 1. **Núcleo:** `Harbinger` base + genérico `detect` + utils (desvio/filtro/seleção) +
    datasets de exemplo (`examples_anomalies`, `examples_changepoints` do R `data.R`).
 2. **Avaliação:** `HarEval` (TP/FP/FN, precision/recall/F1 com tolerância) + `HarEvalSoft`
@@ -196,7 +196,7 @@ Eduardo pediu e o que descobrimos — replique:
 - `python -m build` + `twine check` + **install em venv limpo** → só então `twine upload`.
 - O token **`daldeploy`** (conta inteira) está em `C:\Users\eduar\.pypirc` [pypi] e serve para
   todos os pacotes DAL. **O Eduardo autoriza explicitamente** o upload (publicar é irreversível;
-  versões imutáveis; beta até 1.0.0). sdist exclui `develop/notebooks/examples/tests/tools`.
+  versões imutáveis; beta até 1.0.0). sdist exclui `develop/notebooks/examples/tests`.
 - Depois de publicar: ff-merge dos branches na `main`, badge de PyPI + status "published" no README.
 
 ### Memória

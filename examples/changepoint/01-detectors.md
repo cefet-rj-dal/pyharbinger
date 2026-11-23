@@ -26,7 +26,7 @@ print("ground-truth change points at:", dataset.index[event].tolist())
 ```
 
     ground-truth change points at: [99]
-    
+
 
 ## HcpAmoc — at most one change
 
@@ -37,7 +37,7 @@ print("change point at:", det.index[det["event"]].tolist())
 ```
 
     change point at: [99]
-    
+
 
 ## HcpBinseg — binary segmentation
 
@@ -48,7 +48,7 @@ print("change points at:", det.index[det["event"]].tolist())
 ```
 
     change points at: [99, 148]
-    
+
 
 ## HcpPelt — PELT
 
@@ -61,7 +61,7 @@ print("change points at:", det.index[det["event"]].tolist())
 ```
 
     change points at: [77, 79, 85, 94, 99, 117, 119, 148]
-    
+
 
 ## HcpPageHinkley — online cumulative statistic
 
@@ -72,7 +72,7 @@ print("change point at:", det.index[det["event"]].tolist())
 ```
 
     change point at: [109]
-    
+
 
 ## HcpKswin — Kolmogorov-Smirnov windowing
 
@@ -85,7 +85,7 @@ print("change points at:", det.index[det["event"]].tolist())
 ```
 
     change points at: [105, 182]
-    
+
 
 ## ChangeFinder and regression-based detectors
 
@@ -112,10 +112,10 @@ for name, det_model in [
 
     cf_lr      change points at: [88, 92, 94, 102]
     scp        change points at: [89]
-    
+
 
     joinpoint  change points at: [63, 86, 100, 149, 173]
-    
+
 
 > **Parity note.** `HcpCfLr` and `HcpScp` match R exactly on every example
 > series. `HcpJoinpoint` matches R on well-conditioned series; on a perfectly
@@ -150,7 +150,7 @@ for name, det_model in [("chow", HcpChow()), ("gft", HcpGft())]:
 
     chow  change points at: [99]
     gft   change points at: [99]
-    
+
 
 > **Quality note (Action-1++ gate).** Because the "++" versions deliberately
 > diverge from `strucchange`, they are no longer judged by R parity but by
@@ -188,7 +188,7 @@ for name, det_model in [("cf_arima", HcpCfArima()), ("cf_ets", HcpCfEts())]:
 
     cf_arima  change points at: [99, 100, 102, 195]
     cf_ets    change points at: [99, 106, 195]
-    
+
 
 > **Quality note (Action-1++ gate).** Because the "++" versions deliberately
 > diverge from `forecast`, they are judged by detection quality vs the ground
@@ -234,7 +234,7 @@ print("change points at:", det.index[det["event"]].tolist())
 ```
 
     change points at: [50, 100, 130, 194]
-    
+
 
 > **Gate (Action-1++).** This deliberately diverges from `ocp`, so acceptance is
 > detection quality vs the ground truth (SoftED-F1), not R parity. Summed over the
