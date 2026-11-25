@@ -13,16 +13,18 @@
 Port Python do R **harbinger** (detecção de eventos em TS), último da família DAL, depende de
 **pydaltoolbox + pytspredit** (PyPI). Núcleo + avaliação + anomalias base + FFT-híbridos +
 change points (ruptures/nativos/os 3 **++** strucchange/forecast/ocp) + clustering +
-multivariado + ensemble fuzzy já prontos. **PyPI latest = 0.4.6**; a **0.4.7 (ensemble fuzzy)
-está na `main` mas ainda não foi publicada**. História completa: `historico.md`.
+multivariado + ensemble fuzzy já prontos. **PyPI latest = 0.4.7** (publicada em 2026-11-25, já
+com o fix de backend do `HcpJoinpoint`). História completa: `historico.md`.
 
 ---
 
 ## O que falta — roadmap até a 1.0.0
 
-### 0. ⬜ Publicar a 0.4.7 (pendente de decisão)
-A `main` tem a 0.4.7 (ensemble fuzzy) **não publicada**. Decidir com o Eduardo: publicar a
-0.4.7 como está, **ou** juntá-la ao próximo marco (`hanr_arima`++) numa release só.
+### 0. ✅ Publicar a 0.4.7 — FEITO (2026-11-25)
+Publicada no PyPI (https://pypi.org/project/pyharbinger/0.4.7/). Antes do upload, corrigido um
+`HcpJoinpoint` que divergia do R sob numpy 2.5.5 (DP tie-degenerate: desempate tolerante +
+piso de RSS, idênticos no R e no Python → paridade exata nas 7 séries; backport R em
+harbinger master 2.1.777). Ensemble fuzzy + fix no commit 67cc193.
 
 ### Ciclo 1 — baixa dependência (fechar a cobertura, núcleo enxuto)
 1. ⬜ **`hanr_arima`++** — reler o `hanr_arima` como detector de anomalia por **AR robusto

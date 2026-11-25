@@ -98,28 +98,37 @@ com o R vira nota `adapted (++)`. Instrumento: `develop/benchmark_backimpl.py`.
   **2.1.757**. Python pyharbinger largou `statsmodels`.
 
 ### Publicações (PyPI)
-0.1.0 · 0.2.0 · 0.3.0 · 0.4.0 · 0.4.2 · 0.4.4 · 0.4.5 · 0.4.6. (Nem toda milestone dev-only
-virou release; a última no ar é a **0.4.6**.)
+0.1.0 · 0.2.0 · 0.3.0 · 0.4.0 · 0.4.2 · 0.4.4 · 0.4.5 · 0.4.6 · 0.4.7. (Nem toda milestone
+dev-only virou release; a última no ar é a **0.4.7**.)
 
-### 0.4.7 — ensemble fuzzy (na main, NÃO publicado)
+### 0.4.7 — ensemble fuzzy + fix de backend do joinpoint (PyPI, 2026-11-25)
 `HarEnsembleFuzzy` (consenso fuzzy + piso absoluto) + conversor de exemplos movido para
-`notebooks/conversor.py` (alinha com pytspredit). Está em `main` (commits `f2d80d1`,
-`1c7cfc8`) mas **ainda não foi ao PyPI** (latest lá = 0.4.6). *(Obs.: o `nextprompt` antigo
-propunha 0.4.7 = `hanr_arima`++; o que de fato saiu na 0.4.7 foi o ensemble fuzzy — o
-`hanr_arima`++ segue pendente.)*
+`notebooks/conversor.py` (alinha com pytspredit) — commits `f2d80d1`/`1c7cfc8`. **Publicada no
+PyPI em 2026-11-25** (Eduardo autorizou). Antes do upload, o verde não estava limpo: 2 erros de
+ruff (import/`__all__` do próprio commit da 0.4.7) + o teste de paridade R do **`HcpJoinpoint`**
+falhando sob numpy 2.5.5. Diagnóstico: o DP do joinpoint é **tie-degenerate** em séries
+(quase-)simétricas/perfeitamente lineares — vários conjuntos de breaks com o MESMO RSS total até
+o roundoff (sinusoidal `[22,45,58,76,92]` e o R `[10,26,44,57,80]`, ambos RSS 5.312944); o `<`
+estrito deixava o backend de álgebra (numpy `lstsq` vs R `lm`) decidir o empate, e o numpy novo
+o virou. **Fix (commit `67cc193`):** desempate tolerante (`_JOINPOINT_TOL`, mantém o co-ótimo
+mais cedo) + piso de RSS (`_JOINPOINT_RSS_FLOOR`) na seleção → DP determinístico e independente
+de backend; `simple` passa a recuperar limpo o único cp 50. **Mesmo fix backportado para o R**
+(`hcp_joinpoint.R`, harbinger master `723607f0`, versão **2.1.767→2.1.777**). **Paridade R↔Python
+EXATA nas 7 séries.** Teste reescrito para paridade-R exata nas 5 séries rápidas (complex e
+increasing_amplitude verificadas offline — lentas, O(k·n²)).
 
 ---
 
 ## Estado atual (o resto está em `planejamento.md`)
-- **pyharbinger:** PyPI latest **0.4.6**; `main` tem a **0.4.7** (ensemble fuzzy) **não
-  publicada**. Depende de pydaltoolbox + pytspredit (PyPI).
+- **pyharbinger:** PyPI latest **0.4.7** (ensemble fuzzy + fix do joinpoint). Depende de
+  pydaltoolbox + pytspredit (PyPI).
 - **Cobertura:** núcleo + avaliação + anomalias base + FFT-híbridos + change points (ruptures
   + nativos + os 3 ++ strucchange/forecast/ocp) + clustering + multivariado (HancMl/HmuPca) +
   ensemble fuzzy. **Falta** (Ciclo 1): `hanr_arima`++, `HanrFftSma`, simbólico (SAX/motif/
   discord), ensemble simples + plots, streaming/online + datasets de benchmark/`loadfulldata`.
   **Ciclo 2** (extras): motif-MP (`stumpy`), GARCH (`arch`), EMD (`EMD-signal`), wavelet
   (`PyWavelets`), DTW, deep/torch.
-- **R harbinger:** master em **2.1.767**; largou `strucchange` e `ocp`; ainda importa
+- **R harbinger:** master em **2.1.777**; largou `strucchange` e `ocp`; ainda importa
   `forecast` (último usuário = `hanr_arima`), `changepoint`, e as libs do Ciclo 2 (`hht`,
   `wavelets`, `rugarch`, `tsmp`, `dtwclust`). CRAN/commits do R = Eduardo.
 - `main` é a única branch de código (os `milestone-*` já mesclados foram apagados).
