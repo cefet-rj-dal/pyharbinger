@@ -13,30 +13,34 @@ PRINCÍPIOS (confirme em poucas linhas e siga)
 - Doc: Teoria + References (paper) + Porting em toda classe; dep-removal vai no commit, não na doc.
 - Numeração Boeing só no R após 1.0.0.
 
-ESTADO (2026-11-25)
-- **PyPI latest = 0.4.6.** `main` tem a **0.4.7 (ensemble fuzzy, `HarEnsembleFuzzy`) NÃO
-  publicada** (commits `f2d80d1`, `1c7cfc8` — este último moveu o conversor p/ notebooks/).
-  `main` é a única branch de código (milestones apagados).
+ESTADO (2026-11-25, fim da sessão)
+- **PyPI latest = 0.4.8.** Tudo mesclado no `main` (única branch de código; milestones apagados).
+  0.4.7 = ensemble fuzzy (`HarEnsembleFuzzy`) + fix de backend do `HcpJoinpoint`; 0.4.8 =
+  `hanr_arima`++.
 - **Pronto:** núcleo + avaliação (`HarEval`/`HarEvalSoft`) + anomalias base (`HanrMl`/`HanrFft`/
-  `HanrHistogram`/`HanrFbiad`) + 4 FFT-híbridos + change points (ruptures `HcpAmoc/Binseg/Pelt`
-  + nativos `HcpCfLr/Scp/Joinpoint/Kswin/PageHinkley` + os 3 **++**: `HcpChow/Gft` strucchange++,
-  `HcpCfArima/CfEts` forecast++, `HcpBocpd` ocp++) + clustering (`HanctKmeans`) + multivariado
-  (`HancMl`/`HmuPca`) + `HarEnsembleFuzzy`. Ver mapeamento.md para o que falta.
-- **Deps:** Python largou `statsmodels`; núcleo = pydaltoolbox/pytspredit/numpy/pandas/sklearn/
-  scipy/ruptures (+matplotlib p/ plots). R harbinger master **2.1.767**: largou `strucchange` e
-  `ocp`; ainda importa `forecast` (último usuário = `hanr_arima`), `changepoint`, e as libs do
-  Ciclo 2 (`hht`/`wavelets`/`rugarch`/`tsmp`/`dtwclust`).
+  `HanrHistogram`/`HanrFbiad`) + **`HanrArima`** (ARIMA++) + 4 FFT-híbridos + change points
+  (ruptures `HcpAmoc/Binseg/Pelt` + nativos `HcpCfLr/Scp/Joinpoint/Kswin/PageHinkley` + os 3
+  **++**: `HcpChow/Gft` strucchange++, `HcpCfArima/CfEts` forecast++, `HcpBocpd` ocp++) +
+  clustering (`HanctKmeans`) + multivariado (`HancMl`/`HmuPca`) + `HarEnsembleFuzzy`. Ver
+  mapeamento.md para o que falta.
+- **`HcpJoinpoint`:** DP agora independente de backend (desempate tolerante + piso de RSS) →
+  paridade R↔Python **exata nas 7 séries** (antes quebrava sob numpy 2.5.5).
+- **`HanrArima` (0.4.8):** reusa `pytspredit.fit_arima` (substituto DAL do auto.arima; default
+  `auto="aicc"`, `cv`=ARIMA++ é pior p/ detecção por resíduo) + resíduos in-sample, zera warm-up
+  ANTES das estatísticas (mata o transiente de init do statsmodels). Gate 9.03 > R-forecast 8.58.
+  **Decisão travada:** previsão (`TsArima`) usa `cv`; detecção (`HanrArima`) usa `aicc`.
+- **Deps:** núcleo = pydaltoolbox/pytspredit/numpy/pandas/sklearn/scipy/ruptures (+matplotlib p/
+  plots); `statsmodels` volta só transitivo via pytspredit (no `HanrArima`). R harbinger master
+  **2.1.787**: largou `strucchange`, `ocp` **e `forecast`**; ainda importa `changepoint` e as libs
+  do Ciclo 2 (`hht`/`wavelets`/`rugarch`/`tsmp`/`dtwclust`).
 
 PRÓXIMO (decidir comigo qual — ver planejamento.md)
-- (a) **Publicar a 0.4.7** (ensemble fuzzy) como está, ou juntá-la ao próximo marco.
-- (b) **`hanr_arima`++** — detector de anomalia por AR robusto (SDAR), reusando
-  `changefinder_robust` / `_sdar_ar_scores`/`_causal_ma`. Cria `HanrArima` (Python, sem
-  statsmodels) e permite o backport R **largar o `forecast` de vez**. Gate Ação 1++ sobre
-  `examples_anomalies` (10 séries de ANOMALIA). Leia `harbinger/R/hanr_arima.R` (forecast) e
-  `R/changefinder_robust.R` (SDAR) antes.
-- Depois, Ciclo 1: `HanrFftSma` → simbólico (SAX/motif/discord) → ensemble simples + plots →
-  streaming/online + datasets de benchmark (⚠️ replicar o `loadfulldata` do pytspredit:
-  miniaturas + extra `[bench]`). Ciclo 2 (extras, a refinar): motif-MP/GARCH/EMD/wavelet/DTW/deep.
+- Ciclo 1, na ordem: **`HanrFftSma`** (filtro espectral + média móvel; bug de recycling já
+  corrigido no R master — portar o R `hanr_fft_sma.R`) → simbólico (SAX/motif/discord: `TransSax`/
+  `TransXsax`, `HmoSax`/`HmoXsax`/`HdisSax`) → ensemble simples (`HarEnsemble`) + visualização
+  (`har_plot`*) → streaming/online + datasets de benchmark (⚠️ replicar o `loadfulldata` do
+  pytspredit: miniaturas + extra `[bench]`).
+- Ciclo 2 (extras, a refinar): motif-MP/GARCH/EMD/wavelet/DTW/deep.
 
 WORKFLOW
 1. Branch por milestone saindo da `main`; nada na main sem o Eduardo pedir.
