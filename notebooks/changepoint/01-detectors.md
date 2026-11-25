@@ -97,11 +97,12 @@ for name, det_model in [
     print(f"{name:10s} change points at: {det.index[det['event']].tolist()}")
 ```
 
-> **Parity note.** `HcpCfLr` and `HcpScp` match R exactly on every example
-> series. `HcpJoinpoint` matches R on well-conditioned series; on a perfectly
-> piecewise-linear series the segment residuals collapse to round-off, so the
-> model selection is numerically ill-conditioned and the exact break positions
-> may differ from R (the dominant change point is still recovered).
+> **Parity note.** `HcpCfLr`, `HcpScp` and `HcpJoinpoint` all match R exactly on
+> every example series. The joinpoint dynamic program is tie-degenerate on
+> (near-)symmetric or perfectly piecewise-linear series — several break sets share
+> the same residual sum of squares to within round-off — so a tolerant tie-break
+> plus an RSS floor keep the segmentation deterministic and backend-independent,
+> making the Python releitura and the R backport agree bit-for-bit.
 
 ## Structural-change detectors (strucchange replacement, re-engineered "++")
 

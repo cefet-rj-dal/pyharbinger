@@ -398,6 +398,28 @@ class HcpScp(Harbinger):
 
 # --- hcp_joinpoint (Joinpoint Regression++) ---------------------------------
 
+# Relative tolerance for the dynamic-program tie-break. On (near-)symmetric
+# series the segmentation optimum is degenerate: several break sets share the
+# same total RSS to within round-off. A strict ``<`` then resolves the tie by
+# whichever candidate the linear-algebra backend happens to make sub-ULP smaller
+# -- so ``numpy.linalg.lstsq`` and R's ``stats::lm`` could pick different (but
+# co-optimal) breaks. Comparing with this tolerance makes the tie-break keep the
+# *earliest* co-optimal break set, which is deterministic and identical across
+# backends (Python releitura and the R backport now agree bit-for-bit on the
+# detected indices). Kept in sync with ``.har_joinpoint_tol`` in R.
+_JOINPOINT_TOL = 1e-9
+
+# Relative floor on a model's residual sum of squares, as a fraction of the total
+# sum of squares, used only for model selection. On (near-)perfectly piecewise
+# linear series (e.g. a triangular ramp) the segment RSS collapses to round-off,
+# and ``log(RSS)`` would then reward adding spurious joinpoints that shave an
+# already-zero residual down by further round-off -- differently under
+# ``numpy.linalg.lstsq`` and R's ``stats::lm``. Flooring the RSS makes every
+# "perfect" fit score the same log term, so the BIC penalty correctly prefers the
+# smallest number of joinpoints, deterministically and identically across
+# backends. Kept in sync with ``.har_joinpoint_rss_floor`` in R.
+_JOINPOINT_RSS_FLOOR = 1e-12
+
 
 def _segment_rss(y: np.ndarray, x: np.ndarray) -> float:
     """Residual sum of squares of an OLS fit ``y ~ x`` over a segment.
@@ -519,7 +541,12 @@ class HcpJoinpoint(Harbinger):
                         continue
                     seg_rss = _segment_rss(y[i - 1 : j], x[i - 1 : j])
                     total = prev_rss + seg_rss
-                    if total < best_rss:
+                    thr = (
+                        best_rss - _JOINPOINT_TOL * (1 + abs(best_rss))
+                        if np.isfinite(best_rss)
+                        else np.inf
+                    )
+                    if total < thr:
                         best_rss = total
                         best_cps = [*prev_cps, i]
                 dp_rss[k][j] = best_rss
@@ -543,11 +570,16 @@ class HcpJoinpoint(Harbinger):
         max_jp = self._max_jp(n)
         dp_rss, dp_cps = self._dp(y, x, max_jp)
 
+        tss = float(np.sum((y - y.mean()) ** 2))
+        rss_floor = _JOINPOINT_RSS_FLOOR * tss
+
         best_wbic = np.inf
         best_cps: list[int] = []
         for k in range(max_jp + 1):
             cps = dp_cps[k][n] or []
             rss = dp_rss[k][n]
+            if np.isfinite(rss):
+                rss = max(rss, rss_floor)
             bic = _bic(rss, n, k, factor=2)
             bic3 = _bic(rss, n, k, factor=3)
             w = _joinpoint_weight(y, cps)

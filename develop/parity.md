@@ -153,7 +153,7 @@ fixed on both sides).
 | `hcp_page_hinkley` → `HcpPageHinkley` | detected set | **exact** | 29/36/110/∅ on the 4 series |
 | `hcp_cf_lr` → `HcpCfLr` | detected set | **exact** | all 7 `examples_changepoints` |
 | `hcp_scp` → `HcpScp` | detected set | **exact** | all 7 series |
-| `hcp_joinpoint` → `HcpJoinpoint` | detected set | **exact** (well-conditioned) | exact on sinusoidal; piecewise-linear `simple` → RSS→0 roundoff artefacts, real cp (50) always recovered |
+| `hcp_joinpoint` → `HcpJoinpoint` | detected set | **exact** (all 7) | tolerant tie-break (`_JOINPOINT_TOL`) + RSS floor (`_JOINPOINT_RSS_FLOOR`) make the DP backend-independent → R↔Python identical on all 7 series (incl. sinusoidal ties and the `simple` ramp, which now cleanly yields the single cp 50); same fix backported to R |
 | `hcp_chow`/`hcp_gft` → `HcpChow`/`HcpGft` | SoftED-F1 vs truth | **adapted ++** | 3.73 / 3.17 > R (§5.2) |
 | `hcp_cf_arima`/`hcp_cf_ets` → `HcpCfArima`/`HcpCfEts` | SoftED-F1 vs truth | **adapted ++** | 3.84 / 3.64 > R (§5.2); pure numpy |
 | `hcp_bocpd` → `HcpBocpd` | SoftED-F1 vs truth | **adapted ++** | 3.59 vs R `ocp` 1.12 (§5.2) |

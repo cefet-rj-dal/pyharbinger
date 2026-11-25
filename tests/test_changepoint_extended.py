@@ -55,24 +55,33 @@ def test_scp_matches_r(name, expected):
     assert _cps(det) == expected
 
 
-# --- HcpJoinpoint -----------------------------------------------------------
+# --- HcpJoinpoint: exact R parity on every example series --------------------
+#
+# The joinpoint DP is identical in R (hcp_joinpoint) and Python (releitura++).
+# A tolerant tie-break (``_JOINPOINT_TOL``) plus an RSS floor
+# (``_JOINPOINT_RSS_FLOOR``) make the segmentation backend-independent, so the
+# detected indices now match R bit-for-bit on all seven series -- including the
+# previously tie-degenerate ``sinusoidal`` and the near-perfectly piecewise-linear
+# ``simple`` ramp (which now cleanly recovers its single true change point).
+
+# Only the series up to length 200 are exercised here: the joinpoint DP is
+# O(k_max * n^2) least-squares solves, so ``complex`` (n=500) and
+# ``increasing_amplitude`` (n=1002) take tens of seconds. R parity was verified
+# offline on those two as well (complex -> [161,179,201,308,392];
+# increasing_amplitude -> [697,752,817,879,943], same _cps convention).
+JOINPOINT_REFERENCE = {
+    "simple": [50],
+    "sinusoidal": [10, 26, 44, 57, 80],
+    "incremental": [64, 87, 103, 164, 187],
+    "abrupt": [64, 87, 101, 150, 174],
+    "volatility": [96, 137, 150, 192, 196],
+}
 
 
-def test_joinpoint_matches_r_on_well_conditioned_series():
-    # Sinusoidal is well-conditioned: exact R parity.
-    det = HcpJoinpoint().detect(CP["sinusoidal"]["serie"].to_numpy(dtype=float))
-    assert _cps(det) == [10, 26, 44, 57, 80]
-
-
-def test_joinpoint_degenerate_piecewise_linear_series():
-    # 'simple' is a (near-)perfectly piecewise-linear ramp: the segment RSS
-    # collapses to round-off, so log(RSS) dominates the BIC and k_max is chosen.
-    # The exact break positions are numerically ill-conditioned (differ from R by
-    # round-off), but the true change point (50) is always recovered.
-    det = HcpJoinpoint().detect(CP["simple"]["serie"].to_numpy(dtype=float))
-    cps = _cps(det)
-    assert len(cps) == 5
-    assert 50 in cps
+@pytest.mark.parametrize(("name", "expected"), list(JOINPOINT_REFERENCE.items()))
+def test_joinpoint_matches_r(name, expected):
+    det = HcpJoinpoint().detect(CP[name]["serie"].to_numpy(dtype=float))
+    assert _cps(det) == expected
 
 
 def test_joinpoint_table_contract():
