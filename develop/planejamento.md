@@ -13,8 +13,9 @@
 Port Python do R **harbinger** (detecção de eventos em TS), último da família DAL, depende de
 **pydaltoolbox + pytspredit** (PyPI). Núcleo + avaliação + anomalias base + FFT-híbridos +
 change points (ruptures/nativos/os 3 **++** strucchange/forecast/ocp) + clustering +
-multivariado + ensemble fuzzy já prontos. **PyPI latest = 0.4.7** (publicada em 2026-11-25, já
-com o fix de backend do `HcpJoinpoint`). História completa: `historico.md`.
+multivariado + ensemble fuzzy + `HanrArima` (ARIMA++) já prontos. **PyPI latest = 0.4.8**
+(publicada em 2026-11-25: fix de backend do `HcpJoinpoint` na 0.4.7, `hanr_arima`++ na 0.4.8).
+História completa: `historico.md`.
 
 ---
 
@@ -27,15 +28,16 @@ piso de RSS, idênticos no R e no Python → paridade exata nas 7 séries; backp
 harbinger master 2.1.777). Ensemble fuzzy + fix no commit 67cc193.
 
 ### Ciclo 1 — baixa dependência (fechar a cobertura, núcleo enxuto)
-1. ✅ **`hanr_arima`++** (0.4.8, branch `milestone-hanr-arima-plusplus`, AGUARDANDO REVIEW) —
-   `HanrArima` (anomaly.py) reusa o **`pytspredit.fit_arima`** (substituto DAL do `auto.arima`,
-   conforme o Eduardo pediu — não reinventar) + resíduos in-sample → `har_distance`/`har_outliers`,
-   zera o warm-up `sw_size=max(p,d+1,q)` ANTES das estatísticas (remove o transiente de
-   inicialização difusa do statsmodels que mascarava a anomalia real). **Gate Ação 1++ PASSOU:**
-   SoftED-F1 (soma/10 em `examples_anomalies`) `aicc` **9.03** > R `hanr_arima` **8.58** (default
-   `auto="aicc"`; o `cv`=ARIMA++ dá 8.44, pior para detecção por resíduo → `aicc` é o default).
-   **Pendente (pós-review do Eduardo):** ff-merge + publicar 0.4.8; backport R usando
-   `tspredit::fit_arima` para **largar o `forecast` do R de vez** (último usuário).
+1. ✅ **`hanr_arima`++** (0.4.8, PUBLICADA 2026-11-25) — `HanrArima` (anomaly.py) reusa o
+   **`pytspredit.fit_arima`** (substituto DAL do `auto.arima`, conforme o Eduardo pediu — não
+   reinventar) + resíduos in-sample → `har_distance`/`har_outliers`, zera o warm-up
+   `sw_size=max(p,d+1,q)` ANTES das estatísticas (remove o transiente de inicialização difusa do
+   statsmodels que mascarava a anomalia real). **Gate Ação 1++ PASSOU:** SoftED-F1 (soma/10 em
+   `examples_anomalies`) `aicc` **9.03** > R `hanr_arima`-forecast **8.58** (default `auto="aicc"`;
+   o `cv`=ARIMA++ dá 8.44, pior p/ detecção por resíduo). **R backport FEITO** (harbinger master
+   2.1.787): hanr_arima usa `tspredit::fit_arima`, **`forecast` 100% removido do R** (era o último
+   usuário); R-novo = 9.03 (= Python, > forecast 8.58); detecções R↔Python aproximadas (backend ML
+   diferente), qualidade igual.
 2. ⬜ **`HanrFftSma`** — portar o filtro espectral + média móvel (bug de recycling já corrigido
    no R master). Abre o tema simbólico/espectral.
 3. ⬜ **Simbólico (motif/discord nativo)** — `TransSax`/`TransXsax`, `HmoSax`/`HmoXsax`/
@@ -71,8 +73,9 @@ uma, decidir **embrulhar vs. back-implementar ++** pelo gate (nicho/atrito/parid
     numeração Boeing** (como tspredit/harbinger R).
 
 ## Pendências externas (Eduardo faz)
-- Commits/push e submissão ao CRAN do **R harbinger** (master 2.1.767; largar `forecast` quando
-  o `hanr_arima`++ fechar).
+- Renderização do pipeline de docs do **R harbinger** (examples/*.md + docs/) e submissão ao CRAN
+  (master 2.1.787; `strucchange`/`ocp`/`forecast` já removidos; resta `changepoint` + libs do
+  Ciclo 2).
 
 ## Candidatos de back-implementation ainda abertos (caso a caso)
 - `ruptures`→PELT/Dynp/BinSeg nativos (remove a dep do núcleo + o atrito de wheel no py3.14;

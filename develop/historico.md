@@ -94,12 +94,13 @@ com o R vira nota `adapted (++)`. Instrumento: `develop/benchmark_backimpl.py`.
   mudança de dinâmica/slope) + recursão log-space com poda ε (**streaming** O(n·R̄)) + extração
   por surpresa preditiva (z-robusto causal). **Gate:** bocpd 3.59 vs R `ocp` 1.12 — vence 6/7
   (~3,2×). União com mean+variance piora (dilui `simple`) → ficou BOCPD puro.
-- **Backports R:** harbinger master largou `strucchange` e `ocp` inteiros; bump Boeing até
-  **2.1.757**. Python pyharbinger largou `statsmodels`.
+- **Backports R:** harbinger master largou `strucchange`, `ocp` **e `forecast`** inteiros; bump
+  Boeing até **2.1.787**. Python pyharbinger largou `statsmodels` (dos change points; volta
+  transitivo via pytspredit no `HanrArima`).
 
 ### Publicações (PyPI)
-0.1.0 · 0.2.0 · 0.3.0 · 0.4.0 · 0.4.2 · 0.4.4 · 0.4.5 · 0.4.6 · 0.4.7. (Nem toda milestone
-dev-only virou release; a última no ar é a **0.4.7**.)
+0.1.0 · 0.2.0 · 0.3.0 · 0.4.0 · 0.4.2 · 0.4.4 · 0.4.5 · 0.4.6 · 0.4.7 · 0.4.8. (Nem toda
+milestone dev-only virou release; a última no ar é a **0.4.8**.)
 
 ### 0.4.7 — ensemble fuzzy + fix de backend do joinpoint (PyPI, 2026-11-25)
 `HarEnsembleFuzzy` (consenso fuzzy + piso absoluto) + conversor de exemplos movido para
@@ -117,18 +118,33 @@ de backend; `simple` passa a recuperar limpo o único cp 50. **Mesmo fix backpor
 EXATA nas 7 séries.** Teste reescrito para paridade-R exata nas 5 séries rápidas (complex e
 increasing_amplitude verificadas offline — lentas, O(k·n²)).
 
+### 0.4.8 — `hanr_arima`++ (PyPI, 2026-11-25)
+`HanrArima` (anomaly.py) = releitura do R `hanr_arima`: em vez do `forecast::auto.arima`, reusa o
+**`pytspredit.fit_arima`** (substituto DAL do auto.arima — pedido do Eduardo, não reinventar) +
+resíduos ARIMA in-sample → `har_distance`/`har_outliers`/check → warm-up `sw_size=max(p,d+1,q)`.
+**++ de robustez:** o `.resid` do statsmodels tem transiente de inicialização difusa nos
+primeiros pontos (o Kalman do forecast não tem) que dominava o threshold e escondia a anomalia →
+zera-se o warm-up **antes** das estatísticas. **Gate Ação 1++ PASSOU:** SoftED-F1 soma/10 em
+`examples_anomalies` `aicc` **9.03** > R `hanr_arima`-forecast **8.58** (default `auto="aicc"`; o
+`cv`/ARIMA++ dá 8.44, é afinado p/ previsão). **Backport R** (harbinger master `fcb39c17`,
+2.1.777→**2.1.787**): `hanr_arima` passa a usar `tspredit::fit_arima`; **`forecast` 100% removido**
+do R (DESCRIPTION+NAMESPACE; era o último usuário). R-novo = 9.03 (= Python); detecções R↔Python
+aproximadas (statsmodels vs `stats::arima`), qualidade de detecção igual. Decisão travada: previsão
+(`TsArima`) usa `auto="cv"`; detecção por resíduo (`HanrArima`) usa `auto="aicc"` — ambos
+parametrizáveis.
+
 ---
 
 ## Estado atual (o resto está em `planejamento.md`)
-- **pyharbinger:** PyPI latest **0.4.7** (ensemble fuzzy + fix do joinpoint). Depende de
+- **pyharbinger:** PyPI latest **0.4.8** (`hanr_arima`++). Depende de
   pydaltoolbox + pytspredit (PyPI).
 - **Cobertura:** núcleo + avaliação + anomalias base + FFT-híbridos + change points (ruptures
   + nativos + os 3 ++ strucchange/forecast/ocp) + clustering + multivariado (HancMl/HmuPca) +
-  ensemble fuzzy. **Falta** (Ciclo 1): `hanr_arima`++, `HanrFftSma`, simbólico (SAX/motif/
-  discord), ensemble simples + plots, streaming/online + datasets de benchmark/`loadfulldata`.
+  ensemble fuzzy + `HanrArima` (ARIMA++). **Falta** (Ciclo 1): `HanrFftSma`, simbólico (SAX/
+  motif/discord), ensemble simples + plots, streaming/online + datasets de benchmark/`loadfulldata`.
   **Ciclo 2** (extras): motif-MP (`stumpy`), GARCH (`arch`), EMD (`EMD-signal`), wavelet
   (`PyWavelets`), DTW, deep/torch.
-- **R harbinger:** master em **2.1.777**; largou `strucchange` e `ocp`; ainda importa
-  `forecast` (último usuário = `hanr_arima`), `changepoint`, e as libs do Ciclo 2 (`hht`,
-  `wavelets`, `rugarch`, `tsmp`, `dtwclust`). CRAN/commits do R = Eduardo.
+- **R harbinger:** master em **2.1.787**; largou `strucchange`, `ocp` **e `forecast`**; ainda
+  importa `changepoint` e as libs do Ciclo 2 (`hht`, `wavelets`, `rugarch`, `tsmp`, `dtwclust`).
+  CRAN/commits do R = Eduardo.
 - `main` é a única branch de código (os `milestone-*` já mesclados foram apagados).
