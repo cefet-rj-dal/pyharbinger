@@ -4,7 +4,7 @@
 > em `historico.md`; a correspondência de classes R↔Python em `mapeamento.md`; a metodologia
 > e a matriz de paridade em `parity.md`; o kickoff em `PROMPT.md`.
 
-Última atualização: 2026-11-25
+Última atualização: 2026-11-26
 
 ---
 
@@ -21,30 +21,16 @@ História completa: `historico.md`.
 
 ## O que falta — roadmap até a 1.0.0
 
-### 0. ✅ Publicar a 0.4.7 — FEITO (2026-11-25)
-Publicada no PyPI (https://pypi.org/project/pyharbinger/0.4.7/). Antes do upload, corrigido um
-`HcpJoinpoint` que divergia do R sob numpy 2.5.5 (DP tie-degenerate: desempate tolerante +
-piso de RSS, idênticos no R e no Python → paridade exata nas 7 séries; backport R em
-harbinger master 2.1.777). Ensemble fuzzy + fix no commit 67cc193.
+> Pendente de revisão: **0.5.0 `HanrFftSma`** está na branch `milestone-fft-sma` (commit
+> `adb7222`), implementada e verde, aguardando o "pode fazer" do Eduardo para push/ff-merge/PyPI.
+> Detalhes do que já foi feito em `historico.md`.
 
 ### Ciclo 1 — baixa dependência (fechar a cobertura, núcleo enxuto)
-1. ✅ **`hanr_arima`++** (0.4.8, PUBLICADA 2026-11-25) — `HanrArima` (anomaly.py) reusa o
-   **`pytspredit.fit_arima`** (substituto DAL do `auto.arima`, conforme o Eduardo pediu — não
-   reinventar) + resíduos in-sample → `har_distance`/`har_outliers`, zera o warm-up
-   `sw_size=max(p,d+1,q)` ANTES das estatísticas (remove o transiente de inicialização difusa do
-   statsmodels que mascarava a anomalia real). **Gate Ação 1++ PASSOU:** SoftED-F1 (soma/10 em
-   `examples_anomalies`) `aicc` **9.03** > R `hanr_arima`-forecast **8.58** (default `auto="aicc"`;
-   o `cv`=ARIMA++ dá 8.44, pior p/ detecção por resíduo). **R backport FEITO** (harbinger master
-   2.1.787): hanr_arima usa `tspredit::fit_arima`, **`forecast` 100% removido do R** (era o último
-   usuário); R-novo = 9.03 (= Python, > forecast 8.58); detecções R↔Python aproximadas (backend ML
-   diferente), qualidade igual.
-2. ⬜ **`HanrFftSma`** — portar o filtro espectral + média móvel (bug de recycling já corrigido
-   no R master). Abre o tema simbólico/espectral.
-3. ⬜ **Simbólico (motif/discord nativo)** — `TransSax`/`TransXsax`, `HmoSax`/`HmoXsax`/
+1. ⬜ **Simbólico (motif/discord nativo)** — `TransSax`/`TransXsax`, `HmoSax`/`HmoXsax`/
    `HdisSax` (SAX/xSAX, nativo). Embarca `examples_motifs`.
-4. ⬜ **Ensemble simples + visualização** — `HarEnsemble` (não-fuzzy) + `har_plot`/
+2. ⬜ **Ensemble simples + visualização** — `HarEnsemble` (não-fuzzy) + `har_plot`/
    `har_plot_ensemble`/`har_ensemble_plot_models` (matplotlib, dep do núcleo).
-5. ⬜ **Streaming / online + datasets (fecha o Ciclo 1)** — framework online (memory/sources/
+3. ⬜ **Streaming / online + datasets (fecha o Ciclo 1)** — framework online (memory/sources/
    executor/session) + `har_stream_eval`/`har_stream_experiment` + `united`/`loadfulldata`.
    ⚠️ **`loadfulldata` NÃO é trivial** — replicar o mecanismo do pytspredit: **miniaturas
    embarcadas** (CSV/JSON + `manifest.json{url,kind}`) + **`datasets.loadfulldata(nome)`** que
@@ -54,22 +40,22 @@ harbinger master 2.1.777). Ensemble fuzzy + fix no commit 67cc193.
 ### Ciclo 2 — dependências pesadas (extras opcionais) — *a refinar com o Eduardo*
 Uma família de dep por release; import preguiçoso + erro acionável nomeando o extra. Para cada
 uma, decidir **embrulhar vs. back-implementar ++** pelo gate (nicho/atrito/paridade):
-6. ⬜ **Motif/discord por matrix profile** — `HmoMp`/`HdisMp`, extra `[motif]` (`stumpy`).
-7. ⬜ **GARCH** — `HanrGarch`/`HcpGarch`, extra `[garch]` (`arch`).
-8. ⬜ **EMD** — `HanrEmd`/`HanrRemd`/`HanrRtad`, extra `[emd]` (`EMD-signal`). *(Candidato a
+4. ⬜ **Motif/discord por matrix profile** — `HmoMp`/`HdisMp`, extra `[motif]` (`stumpy`).
+5. ⬜ **GARCH** — `HanrGarch`/`HcpGarch`, extra `[garch]` (`arch`).
+6. ⬜ **EMD** — `HanrEmd`/`HanrRemd`/`HanrRtad`, extra `[emd]` (`EMD-signal`). *(Candidato a
    back-impl nativo 0-dep, como no pytspredit.)*
-9. ⬜ **Wavelet** — `HanrWavelet`, extra `[wavelet]` (`PyWavelets`). *(Idem — MODWT nativo já
+7. ⬜ **Wavelet** — `HanrWavelet`, extra `[wavelet]` (`PyWavelets`). *(Idem — MODWT nativo já
    existe no pytspredit; avaliar reuso.)*
-10. ⬜ **DTW** — `HanctDtw`, extra `[dtw]` (`dtaidistance`/`tslearn`).
-11. ⬜ **Deep learning** — `HanAutoencoder`/`HcpWaypoint`, extra `[deep]` (`torch`). *(O
-    `AutoencBaseEd` do pydaltoolbox é stub identidade — precisa de torch de verdade.)*
+8. ⬜ **DTW** — `HanctDtw`, extra `[dtw]` (`dtaidistance`/`tslearn`).
+9. ⬜ **Deep learning** — `HanAutoencoder`/`HcpWaypoint`, extra `[deep]` (`torch`). *(O
+   `AutoencBaseEd` do pydaltoolbox é stub identidade — precisa de torch de verdade.)*
 
 ### Fechamento
-12. ⬜ **Maturidade (espelhar pydaltoolbox/pytspredit)** — promover as checagens asseridas para
+10. ⬜ **Maturidade (espelhar pydaltoolbox/pytspredit)** — promover as checagens asseridas para
     `develop/parity/<fam>.R` + `tests/test_quality_*` (R-free); auditoria de crédito Py+R
     (Teoria+References+Porting, frases proibidas=0); metadados (`Development Status 4 - Beta`,
     autores do port). → **release BETA** (próxima `0.x.0`, roda ~1 mês).
-13. ⬜ **1.0.0 — estável** — API congelada, matriz de paridade completa. **Pós-1.0.0 adota
+11. ⬜ **1.0.0 — estável** — API congelada, matriz de paridade completa. **Pós-1.0.0 adota
     numeração Boeing** (como tspredit/harbinger R).
 
 ## Pendências externas (Eduardo faz)

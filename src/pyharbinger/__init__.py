@@ -18,6 +18,7 @@ from .anomaly import (
     HanrFftAmocCusum,
     HanrFftBinseg,
     HanrFftBinsegCusum,
+    HanrFftSma,
     HanrHistogram,
     HanrMl,
 )
@@ -58,7 +59,7 @@ from .utils import (
     mas,
 )
 
-__version__ = "0.4.8"
+__version__ = "0.5.0"
 
 __all__ = [
     "HancMl",
@@ -70,6 +71,7 @@ __all__ = [
     "HanrFftAmocCusum",
     "HanrFftBinseg",
     "HanrFftBinsegCusum",
+    "HanrFftSma",
     "HanrHistogram",
     "HanrMl",
     "HarEnsembleFuzzy",

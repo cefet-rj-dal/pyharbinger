@@ -60,6 +60,22 @@ for name, det_model in [
     print(f"{name:18s} detected: {det.index[det['event']].tolist()}")
 ```
 
+## HanrFftSma — adaptive FFT-selected moving average
+
+Uses the periodogram (`spec.pgram`) to find the series' dominant period, smooths
+that recurring component with a simple moving average of that window, and scores
+the trailing-window residual. Faithful port of R `hanr_fft_sma` (after the R
+recycling-bug fix) — the detected set matches R exactly on every
+`examples_anomalies` series.
+
+```python
+from pyharbinger import HanrFftSma
+
+det = HanrFftSma().detect(serie)
+print("detected:", det.index[det["event"]].tolist())
+print(HanrFftSma().evaluate(det, event)["confMatrix"])
+```
+
 ## HanrHistogram — histogram density
 
 Flags observations that fall into low-density or out-of-range histogram bins.

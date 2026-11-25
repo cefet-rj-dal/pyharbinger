@@ -66,6 +66,29 @@ for name, det_model in [
     fft_binseg_cusum   detected: [49]
 
 
+## HanrFftSma — adaptive FFT-selected moving average
+
+Uses the periodogram (`spec.pgram`) to find the series' dominant period, smooths
+that recurring component with a simple moving average of that window, and scores
+the trailing-window residual. Faithful port of R `hanr_fft_sma` (after the R
+recycling-bug fix) — the detected set matches R exactly on every
+`examples_anomalies` series.
+
+
+```python
+from pyharbinger import HanrFftSma
+
+det = HanrFftSma().detect(serie)
+print("detected:", det.index[det["event"]].tolist())
+print(HanrFftSma().evaluate(det, event)["confMatrix"])
+```
+
+    detected: [49]
+                     event_TRUE  event_FALSE
+    detection_TRUE            1            0
+    detection_FALSE           0          100
+
+
 ## HanrHistogram — histogram density
 
 Flags observations that fall into low-density or out-of-range histogram bins.

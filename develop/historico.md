@@ -133,11 +133,24 @@ aproximadas (statsmodels vs `stats::arima`), qualidade de detecção igual. Deci
 (`TsArima`) usa `auto="cv"`; detecção por resíduo (`HanrArima`) usa `auto="aicc"` — ambos
 parametrizáveis.
 
+### 0.5.0 — `HanrFftSma` (port fiel, branch `milestone-fft-sma`, 2026-11-26)
+`HanrFftSma` (anomaly.py) = releitura **fiel** do R `hanr_fft_sma` (nome enganoso: não usa FFT no
+caminho de detecção — usa o periodograma só para achar a janela da média móvel). `_fft_sma_window`
+é port fiel do `stats::spec.pgram` (detrend linear + taper cosseno dividido 10% + zero-pad para
+`nextn`; frequência dominante → `round(n/k)` → janela clampada em `[3, n-1]`); só o argmax importa,
+então as constantes de escala do `spec.pgram` são descartadas. O resíduo é a SMA trailing alinhada
+(`filtered[w-1:] = serie[w-1:] - mas(serie, w)`, com `w-1` pontos de warm-up zerados antes das
+estatísticas) — já com o fix de recycling do R master. **Paridade R↔Python EXATA nas 10 séries
+`examples_anomalies`** (janela idêntica 27/64/171; conjuntos de idx idênticos, incl.
+decreasing_amplitude com 13 pontos). `test_fft_sma.py` (idx exato por série + janela por série +
+warm-up + guarda de `None`). R não expõe `res` na detecção (só idx/event/type), então o invariante
+é o conjunto de índices. Versões 0.4.8→0.5.0. Abre o tema espectral/simbólico do Ciclo 1.
+
 ---
 
 ## Estado atual (o resto está em `planejamento.md`)
-- **pyharbinger:** PyPI latest **0.4.8** (`hanr_arima`++). Depende de
-  pydaltoolbox + pytspredit (PyPI).
+- **pyharbinger:** PyPI latest **0.4.8** (`hanr_arima`++); **0.5.0** (`HanrFftSma`) implementada em
+  branch, aguardando revisão. Depende de pydaltoolbox + pytspredit (PyPI).
 - **Cobertura:** núcleo + avaliação + anomalias base + FFT-híbridos + change points (ruptures
   + nativos + os 3 ++ strucchange/forecast/ocp) + clustering + multivariado (HancMl/HmuPca) +
   ensemble fuzzy + `HanrArima` (ARIMA++). **Falta** (Ciclo 1): `HanrFftSma`, simbólico (SAX/

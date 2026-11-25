@@ -147,6 +147,7 @@ fixed on both sides).
 | `hanr_fft`/`hanr_hist`/`hanr_fbiad` → `HanrFft`/`HanrHistogram`/`HanrFbiad` | detected set + residuals | **exact** | match on `examples_anomalies$simple` (anomaly idx 50) ≤1e-4 |
 | `hanr_ml` → `HanrMl` | detected set + residuals | **exact / stochastic** | kNN exact; ELM `nhid<input_size`+purelin → RNG (use `nhid≥input_size`) |
 | `hanr_arima` → `HanrArima` | SoftED-F1 vs truth | **adapted ++** | reuses `pytspredit.fit_arima` (DAL auto.arima) not `forecast`; 9.03 > R `hanr_arima` 8.58 (sum/10 on `examples_anomalies`, `auto="aicc"`, §5.x) |
+| `hanr_fft_sma` → `HanrFftSma` | detected set | **exact** | all 10 `examples_anomalies`; `spec.pgram` port picks the same MA window (27/64/171); R exposes no `res`, so the set of idx is the invariant |
 | `hanr_fft_amoc/binseg(+cusum)` → `HanrFft*` | detected set + res_sum | **exact** | amoc/binseg/amoc_cusum/binseg_cusum all idx 50; cutindex 5/5/4/39 match `cpt.mean` |
 | `hcp_amoc`/`hcp_binseg` → `HcpAmoc`/`HcpBinseg` | breakpoint positions | **approximate** | match 3/4, ~off-by-1 (ruptures ≠ MBIC) |
 | `hcp_pelt` → `HcpPelt` | breakpoint positions | **approximate** | penalty `3·log n` (MBIC not reproducible in ruptures) |
