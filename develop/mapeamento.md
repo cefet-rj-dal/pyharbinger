@@ -38,7 +38,7 @@ detecção = DataFrame `[idx, event, type, (seq, seqlen)]`.
 | `hanr_fft_amoc.R` / `hanr_fft_binseg.R` | `HanrFftAmoc` / `HanrFftBinseg` | FFT + cutoff via ruptures | ✅ |
 | `hanr_fft_amoc_cusum.R` / `hanr_fft_binseg_cusum.R` | `HanrFftAmocCusum` / `HanrFftBinsegCusum` | idem + CUSUM | ✅ |
 | `hanr_fft_sma.R` | `HanrFftSma` | FFT + média móvel | 🔜 (bug de recycling no R; corrigido no R master, falta portar) |
-| `hanr_arima.R` | `HanrArima` | SDAR (reusar `changefinder_robust`) → derruba `forecast` do R | 🔜 (próximo ++) |
+| `hanr_arima.R` | `HanrArima` | **ARIMA++** reusa `pytspredit.fit_arima` (substituto DAL do auto.arima) + resíduos in-sample → derruba `forecast` do R | ✅ ➕ |
 | `hanr_garch.R` | `HanrGarch` | `arch` (sGARCH+ARMA) | 🧩 `[garch]` |
 | `hanr_emd.R` / `hanr_remd.R` / `hanr_rtad.R` | `HanrEmd` / `HanrRemd` / `HanrRtad` | EMD (`hht` no R) | 🧩 `[emd]` |
 | `hanr_wavelet.R` | `HanrWavelet` | wavelet (`wavelets` no R) | 🧩 `[wavelet]` |

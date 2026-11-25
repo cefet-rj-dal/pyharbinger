@@ -27,11 +27,15 @@ piso de RSS, idênticos no R e no Python → paridade exata nas 7 séries; backp
 harbinger master 2.1.777). Ensemble fuzzy + fix no commit 67cc193.
 
 ### Ciclo 1 — baixa dependência (fechar a cobertura, núcleo enxuto)
-1. ⬜ **`hanr_arima`++** — reler o `hanr_arima` como detector de anomalia por **AR robusto
-   (SDAR)**, reusando o `changefinder_robust` / os helpers `_sdar_ar_scores`/`_causal_ma` já
-   existentes. Cria `HanrArima` no Python **sem statsmodels**; permite o backport R **largar o
-   `forecast` de vez** (é o último usuário). **Gate Ação 1++** sobre `examples_anomalies` (10
-   séries de ANOMALIA): SoftED-F1 vs `event`, bater/superar o R `hanr_arima`.
+1. ✅ **`hanr_arima`++** (0.4.8, branch `milestone-hanr-arima-plusplus`, AGUARDANDO REVIEW) —
+   `HanrArima` (anomaly.py) reusa o **`pytspredit.fit_arima`** (substituto DAL do `auto.arima`,
+   conforme o Eduardo pediu — não reinventar) + resíduos in-sample → `har_distance`/`har_outliers`,
+   zera o warm-up `sw_size=max(p,d+1,q)` ANTES das estatísticas (remove o transiente de
+   inicialização difusa do statsmodels que mascarava a anomalia real). **Gate Ação 1++ PASSOU:**
+   SoftED-F1 (soma/10 em `examples_anomalies`) `aicc` **9.03** > R `hanr_arima` **8.58** (default
+   `auto="aicc"`; o `cv`=ARIMA++ dá 8.44, pior para detecção por resíduo → `aicc` é o default).
+   **Pendente (pós-review do Eduardo):** ff-merge + publicar 0.4.8; backport R usando
+   `tspredit::fit_arima` para **largar o `forecast` do R de vez** (último usuário).
 2. ⬜ **`HanrFftSma`** — portar o filtro espectral + média móvel (bug de recycling já corrigido
    no R master). Abre o tema simbólico/espectral.
 3. ⬜ **Simbólico (motif/discord nativo)** — `TransSax`/`TransXsax`, `HmoSax`/`HmoXsax`/

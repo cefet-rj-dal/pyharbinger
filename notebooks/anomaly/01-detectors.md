@@ -95,3 +95,22 @@ det = model.detect(serie)
 print("detected:", det.index[det["event"]].tolist())
 print(model.evaluate(det, event)["confMatrix"])
 ```
+
+## HanrArima — ARIMA++ residuals
+
+Fits an ARIMA model and flags points whose in-sample residual is too large. This
+is the releitura of R `hanr_arima`: the order is chosen by the DAL ARIMA
+auto-selector `pytspredit.fit_arima` (`auto="aicc"` compact search by default, or
+`auto="cv"` for the heavier ARIMA++ cross-validated selector) instead of
+`forecast::auto.arima`, so the detector carries no dependency on R's `forecast`
+package. On the ground-truth `examples_anomalies`, its SoftED-F1 beats the R
+detector (9.03 vs 8.58, sum over the ten series).
+
+```python
+from pyharbinger import HanrArima
+
+model = HanrArima(auto="aicc")
+det = model.detect(serie)
+print("detected:", det.index[det["event"]].tolist())
+print(model.evaluate(det, event)["confMatrix"])
+```

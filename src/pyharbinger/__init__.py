@@ -11,6 +11,7 @@ from __future__ import annotations
 
 from . import datasets, utils
 from .anomaly import (
+    HanrArima,
     HanrFbiad,
     HanrFft,
     HanrFftAmoc,
@@ -57,11 +58,12 @@ from .utils import (
     mas,
 )
 
-__version__ = "0.4.7"
+__version__ = "0.4.8"
 
 __all__ = [
     "HancMl",
     "HanctKmeans",
+    "HanrArima",
     "HanrFbiad",
     "HanrFft",
     "HanrFftAmoc",

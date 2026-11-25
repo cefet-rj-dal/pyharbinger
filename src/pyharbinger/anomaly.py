@@ -25,6 +25,7 @@ from .harbinger import Harbinger
 from .utils import har_candidate_selection_highgroup
 
 __all__ = [
+    "HanrArima",
     "HanrFbiad",
     "HanrFft",
     "HanrFftAmoc",
@@ -335,6 +336,118 @@ class HanrFbiad(Harbinger):
         anomalies = i_f | i_b
 
         return self._restore_refs(anomalies=anomalies, res=res)
+
+
+# --- hanr_arima (ARIMA++ anomaly detector) ----------------------------------
+
+
+class HanrArima(Harbinger):
+    """Anomaly detector based on ARIMA residuals (port of R ``hanr_arima``, ``++``).
+
+    Theory:
+        An ARIMA(p, d, q) model captures the normal autoregressive / moving-average
+        dynamics of a series. Once fitted, observations whose in-sample residual is
+        unusually large are flagged as anomalies: the model predicts what the series
+        "should" do next, and a point it cannot explain is a candidate event.
+        Residual magnitudes are turned into a distance and thresholded with the
+        shared Harbinger outlier heuristics; the first ``sw_size`` points are a
+        warm-up window and never flagged.
+
+    "++" adaptation:
+        The original R ``hanr_arima`` picks the order with ``forecast::auto.arima``
+        (stepwise AICc). This releitura reuses the DAL ARIMA auto-selector
+        :func:`pytspredit.fit_arima` -- in particular its ``auto="cv"`` *ARIMA++*
+        mode, which draws the ``(p, q)`` candidates from the significant ACF/PACF
+        lags (Box-Jenkins identification, not a fixed cap of 5) and ranks them by
+        rolling-origin cross-validated forecast error rather than the in-sample AICc
+        proxy. Reusing the DAL ARIMA removes the dependency on R's ``forecast``
+        package (its last ``harbinger`` user), so the R backport can drop it.
+
+    References:
+        - Box GEP, Jenkins GM, Reinsel GC, Ljung GM (2015). Time Series Analysis:
+          Forecasting and Control. Wiley.
+        - Hyndman RJ, Khandakar Y (2008). Automatic time series forecasting: the
+          forecast package for R. Journal of Statistical Software, 27(3).
+        - Tashman LJ (2000). Out-of-sample tests of forecasting accuracy: an
+          analysis and review. International Journal of Forecasting, 16(4)
+          (rolling-origin evaluation).
+
+    Porting:
+        Mirrors ``hanr_arima.R``. Fidelity: adapted (++). Order selection via
+        ``pytspredit.fit_arima`` (the DAL ARIMA) instead of ``forecast::auto.arima``;
+        the detection path (in-sample residuals -> ``har_distance`` -> ``har_outliers``
+        -> warm-up mask of ``sw_size = max(p, d + 1, q)``) follows the R original.
+
+    Parameters
+    ----------
+    auto:
+        Order-selection mode forwarded to :func:`pytspredit.fit_arima`: ``"aicc"``
+        (compact AICc search, the default -- fast and already beats the R detector)
+        or ``"cv"`` (the heavier ARIMA++ rolling-origin cross-validated selector).
+    max_order, cv_folds, horizon:
+        Forwarded to :func:`pytspredit.fit_arima` when ``auto="cv"``.
+    """
+
+    def __init__(
+        self,
+        auto: str = "aicc",
+        max_order: int = 12,
+        cv_folds: int = 2,
+        horizon=None,
+    ):
+        super().__init__()
+        self.auto = auto
+        self.max_order = max_order
+        self.cv_folds = cv_folds
+        self.horizon = horizon
+        self.p = self.d = self.q = 0
+        self.sw_size = 1
+        self._model = None
+
+    def fit(self, serie, **kwargs) -> HanrArima:
+        from pytspredit import fit_arima
+
+        arr = _as_array(serie)
+        (self.p, self.d, self.q), _trend, self._model = fit_arima(
+            arr,
+            auto=self.auto,
+            max_order=self.max_order,
+            cv_folds=self.cv_folds,
+            horizon=self.horizon,
+        )
+        self.sw_size = max(self.p, self.d + 1, self.q)
+        return self
+
+    def detect(self, serie, **kwargs):
+        if serie is None:
+            raise ValueError("No data was provided for computation")
+        self._store_refs(serie)
+        values = np.asarray(self.serie, dtype=float)
+        self.fit(values)
+
+        resid = np.asarray(self._model.resid, dtype=float).ravel()
+        # statsmodels returns one residual per point; guard against any length drift.
+        if len(resid) != len(values):
+            pad = max(len(values) - len(resid), 0)
+            resid = np.concatenate([np.zeros(pad), resid])[: len(values)]
+
+        # Neutralise the warm-up window *before* the outlier statistics. Unlike R's
+        # ``forecast`` Kalman residuals, statsmodels' in-sample residuals carry a
+        # large diffuse-initialisation transient in the first few points; left in,
+        # it dominates the threshold and hides the real anomalies. Zeroing the first
+        # ``sw_size`` residuals (the window R flags as warm-up anyway) removes the
+        # transient from both the statistics and the final detection.
+        warm = min(self.sw_size, len(resid))
+        resid[:warm] = 0.0
+
+        res = self.har_distance(resid)
+        outliers = self.har_outliers(res)
+        selection = self.har_outliers_check(outliers, res, values)
+
+        mask = np.asarray(selection.mask, dtype=bool).copy()
+        mask[:warm] = False  # R: anomalies[1:sw_size] <- FALSE
+
+        return self._restore_refs(anomalies=mask, res=res, threshold=selection.threshold)
 
 
 def _as_array(serie) -> np.ndarray:
