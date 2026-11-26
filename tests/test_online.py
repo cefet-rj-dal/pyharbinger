@@ -18,9 +18,12 @@ from pyharbinger import (
     HarOnlineDetectOnly,
     HarOnlineRefitFull,
     HarOnlineSession,
+    HarSimulatedCollector,
     HarSourceCallback,
     HarSourceDataframe,
+    HarSourceKafka,
     HarSourceSimulated,
+    HarStreamCollector,
     HcpPageHinkley,
     har_memory_label,
 )
@@ -148,3 +151,57 @@ def test_collect_detection_empty_before_run():
     det = session.collect_detection()
     assert list(det.columns) == ["idx", "event", "type"]
     assert len(det) == 0
+
+
+# --- Kafka source (dependency-free abstraction + collector seam) --------------
+
+def test_kafka_source_with_simulated_collector_matches_simulated_source():
+    # A Kafka source fed by a simulated collector must behave exactly like the
+    # simulated replay source (same gradual consumption -> same detections).
+    source = HarSourceKafka("topic", ["broker:9092"], "grp", collector=HarSimulatedCollector(SERIE))
+    session = HarOnlineSession(source=source, detector=_detector(), warmup_size=3, batch_size=2)
+    session.fit()
+    session.run()
+    assert _events(session.collect_detection()) == [2, 8, 15]
+
+
+def test_kafka_source_without_collector_raises_actionable_error():
+    source = HarSourceKafka("topic", ["broker:9092"], "grp")
+    with pytest.raises(RuntimeError, match="collector"):
+        source.next_observation()
+
+
+def test_kafka_source_accepts_custom_collector_subclass():
+    class MyCollector(HarStreamCollector):
+        def __init__(self, data):
+            self._it = iter(data)
+
+        def get_next(self):
+            return next(self._it, None)
+
+    source = HarSourceKafka("topic", ["broker:9092"], "grp", collector=MyCollector(SERIE))
+    session = HarOnlineSession(source=source, detector=_detector(), warmup_size=3, batch_size=2)
+    session.fit()
+    session.run()
+    assert _events(session.collect_detection()) == [2, 8, 15]
+
+
+def test_kafka_source_validates_config_and_collector():
+    with pytest.raises(ValueError):
+        HarSourceKafka("", ["b"], "g")
+    with pytest.raises(ValueError):
+        HarSourceKafka("t", [], "g")
+    with pytest.raises(TypeError):
+        HarSourceKafka("t", ["b"], "g", collector=object())
+
+
+def test_simulated_collector_exhausts():
+    collector = HarSimulatedCollector([1.0, 2.0])
+    assert collector.get_next() == 1.0
+    assert collector.get_next() == 2.0
+    assert collector.get_next() is None
+
+
+def test_stream_collector_base_is_abstract():
+    with pytest.raises(NotImplementedError):
+        HarStreamCollector().get_next()

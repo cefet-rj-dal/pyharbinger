@@ -71,6 +71,45 @@ push.run()
 push.collect_detection().index[push.collect_detection()["event"]].tolist()
 ```
 
+## Live streams (Kafka) without a broker dependency
+
+`HarSourceKafka` holds the broker configuration but delegates the actual
+consumption to a **collector** (`get_next()`), so `pyharbinger` ships *no* Kafka
+dependency. Attach a `HarSimulatedCollector` to test end-to-end, or subclass
+`HarStreamCollector` with your own Kafka client to read a live topic.
+
+```python
+from pyharbinger import HarSourceKafka, HarSimulatedCollector
+
+source = HarSourceKafka(
+    topic="sensor-events",
+    bootstrap_servers=["broker:9092"],
+    group_id="harbinger",
+    collector=HarSimulatedCollector(serie),  # swap for a real-broker collector
+)
+session = HarOnlineSession(source=source, detector=HcpPageHinkley(min_instances=3, threshold=1),
+                           warmup_size=3, batch_size=2)
+session.fit()
+session.run()
+session.collect_detection().index[session.collect_detection()["event"]].tolist()
+```
+
+To consume a real topic, write a tiny collector and plug it in (the Kafka client
+lives in *your* code, never in `pyharbinger`):
+
+```python
+from pyharbinger import HarStreamCollector
+
+class KafkaCollector(HarStreamCollector):
+    def __init__(self, consumer):
+        self._consumer = consumer       # e.g. a kafka-python KafkaConsumer
+
+    def get_next(self):
+        for message in self._consumer:  # one message at a time
+            return float(message.value)
+        return None                     # stream exhausted
+```
+
 > **Memory policies:** `HarMemoryFull`, `HarMemorySliding(batches)`,
 > `HarMemoryLastObservations(n)` bound the in-memory context.
 > **Execution strategies:** `HarOnlineRefitFull`, `HarOnlineDetectOnly`,

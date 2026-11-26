@@ -48,9 +48,12 @@ __all__ = [
     "HarOnlineIncremental",
     "HarOnlineRefitFull",
     "HarOnlineSession",
+    "HarSimulatedCollector",
     "HarSourceCallback",
     "HarSourceDataframe",
+    "HarSourceKafka",
     "HarSourceSimulated",
+    "HarStreamCollector",
     "har_memory_label",
 ]
 
@@ -251,6 +254,96 @@ class HarSourceCallback:
 
     def info(self) -> dict:
         return {"name": self.name, "type": "callback", "cursor": self.cursor}
+
+
+# --- stream collectors (extension point for live brokers) --------------------
+
+class HarStreamCollector:
+    """Abstract pull collector: yields one observation at a time.
+
+    This is the extension seam for live streams. Subclass :meth:`get_next` to
+    pull from a real broker (e.g. Kafka) using *your own* client; ``pyharbinger``
+    ships no broker dependency. :meth:`get_next` returns a single observation
+    (scalar, one-row DataFrame, or ``{idx?, value, timestamp?, payload?}`` dict)
+    or ``None`` when the stream is exhausted.
+    """
+
+    def get_next(self):
+        raise NotImplementedError("Subclasses must implement get_next().")
+
+    def close(self):
+        """Optional cleanup hook (no-op by default)."""
+
+
+class HarSimulatedCollector(HarStreamCollector):
+    """Reference collector that replays an in-memory iterable one item at a time.
+
+    Lets a :class:`HarSourceKafka` be exercised end-to-end without a broker, and
+    serves as the template for a real-broker collector.
+    """
+
+    def __init__(self, data):
+        self._iter = iter(data)
+
+    def get_next(self):
+        return next(self._iter, None)
+
+
+class HarSourceKafka:
+    """Kafka-shaped streaming source that delegates consumption to a collector.
+
+    Holds the broker configuration and pulls one observation per
+    :meth:`next_observation` from ``collector.get_next()``. **No Kafka client is
+    imported and no broker dependency is declared** -- attach a
+    :class:`HarSimulatedCollector` to test, or your own :class:`HarStreamCollector`
+    backed by a real Kafka consumer to read a live topic.
+
+    Mirrors the intent of R ``har_source_kafka`` (which delegates to a
+    reticulate ``python_collector`` exposing ``get_next()``), refined into a
+    first-class, dependency-free abstraction.
+    """
+
+    def __init__(self, topic, bootstrap_servers, group_id, collector=None, value_schema=None, name="kafka"):
+        if not topic:
+            raise ValueError("topic must be provided.")
+        if not bootstrap_servers:
+            raise ValueError("bootstrap_servers must be provided.")
+        if not group_id:
+            raise ValueError("group_id must be provided.")
+        if collector is not None and not hasattr(collector, "get_next"):
+            raise TypeError("collector must expose a get_next() method.")
+        self.name = name
+        self.topic = topic
+        self.bootstrap_servers = bootstrap_servers
+        self.group_id = group_id
+        self.value_schema = value_schema
+        self.collector = collector
+        self.cursor = 0
+
+    def next_observation(self):
+        if self.collector is None:
+            raise RuntimeError(
+                "No collector attached to the Kafka source. Attach a "
+                "HarStreamCollector -- e.g. HarSimulatedCollector(data) to test, "
+                "or your own collector backed by a Kafka client exposing get_next()."
+            )
+        observation = self.collector.get_next()
+        if observation is None:
+            return None
+        obs = _normalize_observation(observation, self.cursor)
+        self.cursor += 1
+        return obs
+
+    def info(self) -> dict:
+        return {
+            "name": self.name,
+            "type": "kafka",
+            "topic": self.topic,
+            "bootstrap_servers": self.bootstrap_servers,
+            "group_id": self.group_id,
+            "initialized": self.collector is not None,
+            "cursor": self.cursor,
+        }
 
 
 # --- session -----------------------------------------------------------------

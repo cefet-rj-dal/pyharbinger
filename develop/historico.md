@@ -201,8 +201,12 @@ benchmark/`loadfulldata`).
 ## M18 — framework online/streaming (item-3a do Ciclo 1) (0.9.0, 2026-11-26, branch `milestone-online`)
 Port FIEL do framework online R (`har_online_memory`/`executor`/`sources`/`session`, ~1045 linhas) →
 `src/pyharbinger/online.py` (OO). **Fontes:** `HarSourceSimulated` (replay de vetor/matriz/DataFrame),
-`HarSourceDataframe` (seleção de colunas valor/timestamp), `HarSourceCallback` (pull por função);
-**Kafka pulado** (no R é stub reticulate-only; decisão do Eduardo). **Memória:** `HarMemoryFull`/
+`HarSourceDataframe` (seleção de colunas valor/timestamp), `HarSourceCallback` (pull por função) e
+**`HarSourceKafka` como abstração SEM dependência de Kafka** (ideia do Eduardo): guarda a config do
+broker e delega o consumo a um `collector` com `get_next()` (espelha o `python_collector`/reticulate
+do R, refinado). Embarca `HarStreamCollector` (base abstrata) + `HarSimulatedCollector` (replay
+gradual em memória, testável sem broker); Kafka real = subclasse do usuário (dep fica no código dele).
+`HarSourceKafka`+`HarSimulatedCollector(data)` ≡ `HarSourceSimulated(data)` (saída de sessão idêntica). **Memória:** `HarMemoryFull`/
 `HarMemorySliding(batches)`/`HarMemoryLastObservations(n)` + `har_memory_label`. **Execução:**
 `HarOnlineRefitFull`/`HarOnlineDetectOnly`/`HarOnlineIncremental`. **Sessão:** `HarOnlineSession`
 (métodos `.fit`/`.ingest`/`.step`/`.run`/`.is_finished`/`.collect_detection`/`.collect_trace`/
@@ -211,8 +215,8 @@ casar com a convenção offline do pyharbinger. **Paridade R↔Python EXATA** (v
 sourcing dos 4 arquivos online + hcp_page_hinkley, série de 20 pts): eventos (0-based 2,8,15 = R 3,9,16),
 detection_probability, detection_lag_batches/observations, batch_frequency/detection_frequency do trace,
 nº de batches — idênticos em **full/sliding(2)/last_obs(4)** × **refit_full/detect_only** × **pull/push
-(ingest)**. 222 testes (+12 test_online.py), ruff limpo, notebook `online/01-online` compila, build+twine
-PASS. Versões 0.8.0→0.9.0. **Falta do item 3:** 3b (`har_stream_eval`/`har_stream_experiment`) e 3c
+(ingest)**. 228 testes (+18 test_online.py, inclui a fonte Kafka), ruff limpo, notebook `online/01-online`
+compila, build+twine PASS. Versões 0.8.0→0.9.0. **Falta do item 3:** 3b (`har_stream_eval`/`har_stream_experiment`) e 3c
 (`united`+`loadfulldata`+datasets de benchmark). R backport: NÃO necessário (port fiel; o R já é o original).
 
 ---
