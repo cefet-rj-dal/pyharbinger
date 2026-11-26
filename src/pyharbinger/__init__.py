@@ -60,6 +60,7 @@ from .online import (
     har_memory_label,
 )
 from .plots import har_ensemble_plot, har_ensemble_plot_models, har_plot
+from .streaming import HarStreamEval, har_stream_experiment
 from .symbolic import HdisSax, HmoSax, HmoXsax, TransSax, TransXsax
 from .utils import (
     har_candidate_selection_firstgroup,
@@ -77,7 +78,7 @@ from .utils import (
     mas,
 )
 
-__version__ = "0.9.0"
+__version__ = "0.10.0"
 
 __all__ = [
     "HancMl",
@@ -109,6 +110,7 @@ __all__ = [
     "HarSourceKafka",
     "HarSourceSimulated",
     "HarStreamCollector",
+    "HarStreamEval",
     "Harbinger",
     "HcpAmoc",
     "HcpBinseg",
@@ -146,6 +148,7 @@ __all__ = [
     "har_filter_ratio",
     "har_memory_label",
     "har_plot",
+    "har_stream_experiment",
     "mas",
     "utils",
 ]

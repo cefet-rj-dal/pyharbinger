@@ -215,24 +215,40 @@ casar com a convenção offline do pyharbinger. **Paridade R↔Python EXATA** (v
 sourcing dos 4 arquivos online + hcp_page_hinkley, série de 20 pts): eventos (0-based 2,8,15 = R 3,9,16),
 detection_probability, detection_lag_batches/observations, batch_frequency/detection_frequency do trace,
 nº de batches — idênticos em **full/sliding(2)/last_obs(4)** × **refit_full/detect_only** × **pull/push
-(ingest)**. 228 testes (+18 test_online.py, inclui a fonte Kafka), ruff limpo, notebook `online/01-online`
-compila, build+twine PASS. Versões 0.8.0→0.9.0. **Falta do item 3:** 3b (`har_stream_eval`/`har_stream_experiment`) e 3c
-(`united`+`loadfulldata`+datasets de benchmark). R backport: NÃO necessário (port fiel; o R já é o original).
+(ingest)**. 229 testes, ruff limpo, notebooks `online/01-online`+`02-kafka` compilam, build+twine PASS.
+Versões 0.8.0→0.9.0. **Breakthrough Kafka (ideia do Eduardo):** `HarSourceKafka` é abstração SEM
+dependência — delega a um `collector.get_next()`; embarca `HarStreamCollector` (base) + `HarSimulatedCollector`
+(testável sem broker); Kafka real = subclasse do usuário. **R-backportado (2.2.717, paridade total).**
+0.9.0 publicada no PyPI + mesclada (HEAD `6edc773`).
+
+## M19 — avaliação em streaming (item-3b do Ciclo 1) (0.10.0, 2026-11-26, branch `milestone-stream-eval`)
+Port FIEL de `har_stream_eval`+`har_stream_experiment` → `src/pyharbinger/streaming.py`. **`HarStreamEval`**
+(`.evaluate(trace, reference=None, probability_threshold=None)`): consome o trace do `collect_trace`, produz
+`summary` (DP/DL: n_obs/n_detected/mean+median DP/mean+median lag_batches+observations/zero_lag_rate),
+`by_observation`, e — com `reference` — `hard_metrics` via `HarEval` (idx do trace mapeado p/ um vetor
+de detecção), e — com `probability_threshold` — `threshold_detection`+`threshold_hard_metrics`.
+**`har_stream_experiment(detectors, source_factory, warmup_grid, batch_grid, memory_grid, executor, reference, mode)`**:
+roda o grid (detector×warmup×batch×memória) com uma sessão fresca por célula (source_factory), retorna
+`{runs, summary(DataFrame)}`. **Paridade R↔Python EXATA** (Rscript): summary (meanDP 0.15, meanLagO 2.0,
+zero_lag 1.0), hard (TP2/FP1/FN1, acc 0.9, F1 0.6667), threshold detection (sum 3), e a tabela do grid
+(n_batches 17/9, F1 0.6667) — idênticos. idx 0-based (R 1-based). 236 testes (+7 test_streaming.py), ruff
+limpo, notebook `online/03-streaming-eval` compila, build+twine PASS. Versões 0.9.0→0.10.0. R backport NÃO
+necessário (port fiel). **Falta do item 3:** só 3c (`united`+`loadfulldata`+datasets de benchmark) p/ fechar o Ciclo 1.
 
 ---
 
 ## Estado atual (o resto está em `planejamento.md`)
-- **pyharbinger:** PyPI latest **0.8.0** (plots, publicada); **0.9.0** (framework online, item-3a) em
-  branch `milestone-online`, aguardando revisão. Depende de pydaltoolbox + pytspredit + matplotlib (PyPI).
+- **pyharbinger:** PyPI latest **0.9.0** (framework online, publicada); **0.10.0** (stream eval, item-3b) em
+  branch `milestone-stream-eval`, aguardando revisão. Depende de pydaltoolbox + pytspredit + matplotlib (PyPI).
 - **Cobertura:** núcleo + avaliação + anomalias base + FFT-híbridos + change points (ruptures
   + nativos + os 3 ++ strucchange/forecast/ocp) + clustering + multivariado (HancMl/HmuPca) +
   ensemble (`HarEnsemble` majoritário + `HarEnsembleFuzzy`) + `HanrArima` (ARIMA++) + `HanrFftSma`
   + **simbólico (`TransSax`/`TransXsax`/`HmoSax`/`HmoXsax`/`HdisSax`)** + **plots (`har_plot`/
-  `har_ensemble_plot`/`har_ensemble_plot_models`)** + **online (`HarOnlineSession` + fontes/memória/
-  execução)**. **Falta** (Ciclo 1): só 3b (stream eval) + 3c (`united`/`loadfulldata`/datasets de
-  benchmark). **Ciclo 2** (extras): motif-MP (`stumpy`), GARCH (`arch`), EMD (`EMD-signal`), wavelet
-  (`PyWavelets`), DTW, deep/torch.
-- **R harbinger:** master em **2.2.707** (`hdis_sax`→discord); largou `strucchange`, `ocp` **e
-  `forecast`**; ainda importa `changepoint` e as libs do Ciclo 2 (`hht`, `wavelets`, `rugarch`,
-  `tsmp`, `dtwclust`). CRAN/commits do R = Eduardo.
+  `har_ensemble_plot`/`har_ensemble_plot_models`)** + **online (`HarOnlineSession` + fontes incl. Kafka/
+  memória/execução)** + **stream eval (`HarStreamEval`/`har_stream_experiment`)**. **Falta** (Ciclo 1):
+  só 3c (`united`/`loadfulldata`/datasets de benchmark). **Ciclo 2** (extras): motif-MP (`stumpy`), GARCH
+  (`arch`), EMD (`EMD-signal`), wavelet (`PyWavelets`), DTW, deep/torch.
+- **R harbinger:** master em **2.2.717** (`hdis_sax`→discord; `har_source_kafka`→abstração sem-dep); largou
+  `strucchange`, `ocp` **e `forecast`**; ainda importa `changepoint` e as libs do Ciclo 2 (`hht`, `wavelets`,
+  `rugarch`, `tsmp`, `dtwclust`). CRAN/commits do R = Eduardo.
 - `main` é a única branch de código (os `milestone-*` já mesclados foram apagados).

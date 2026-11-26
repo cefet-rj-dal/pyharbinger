@@ -38,7 +38,8 @@ multivariado + ensemble fuzzy + `HanrArima` (ARIMA++) + `HanrFftSma` + **simból
    - **3a ✅ framework online (0.9.0)** — `HarOnlineSession` + fontes (`HarSourceSimulated`/
      `HarSourceDataframe`/`HarSourceCallback`) + políticas de memória + estratégias de execução.
      Paridade exata R↔Python (eventos+DP+DL). **Kafka pulado** (stub reticulate-only no R).
-   - **3b ⬜ avaliação em streaming** — `har_stream_eval` + `har_stream_experiment` (depende de 3a).
+   - **3b ✅ avaliação em streaming (0.10.0)** — `HarStreamEval` + `har_stream_experiment`. Paridade
+     exata R↔Python (summary DP/DL + hard metrics + tabela do grid).
    - **3c ⬜ `united` + `loadfulldata` + datasets de benchmark.** ⚠️ **`loadfulldata` NÃO é
      trivial** — replicar o mecanismo do pytspredit: **miniaturas embarcadas** (CSV/JSON +
      `manifest.json{url,kind}`) + **`datasets.loadfulldata(nome)`** que baixa o completo das MESMAS

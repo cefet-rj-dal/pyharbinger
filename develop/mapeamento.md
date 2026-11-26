@@ -85,7 +85,7 @@ detecção = DataFrame `[idx, event, type, (seq, seqlen)]`.
 | `har_online_memory.R` (`har_memory_full/last_observations/sliding`) | `HarMemoryFull`/`HarMemoryLastObservations`/`HarMemorySliding` + `har_memory_label` | ✅ (paridade exata) |
 | `har_online_sources.R` (`har_source_callback/dataframe/kafka/simulated`, `source_info`, `ingest`, `next_observation`, `is_finished`) | `HarSourceSimulated`/`HarSourceDataframe`/`HarSourceCallback`/`HarSourceKafka` + `HarStreamCollector`/`HarSimulatedCollector` (`.next_observation`/`.info`) | ✅ (Kafka = abstração SEM dep: delega a um collector `get_next()`; usuário pluga Kafka real via subclasse) |
 | `har_online_executor.R` / `har_online_session.R` (`har_online_detect_only/incremental/refit_full`, `run_online`, `step_online`, `har_online_session`) | `HarOnlineRefitFull`/`HarOnlineDetectOnly`/`HarOnlineIncremental` + `HarOnlineSession` (`.fit`/`.ingest`/`.step`/`.run`/`.is_finished`/`.collect_*`) | ✅ (paridade exata: eventos+DP+DL) |
-| `har_stream_eval.R` / `har_stream_experiment.R` (`collect_batch_log/detection/trace`) | avaliação em streaming | ⬜ |
+| `har_stream_eval.R` / `har_stream_experiment.R` (`collect_batch_log/detection/trace`) | `HarStreamEval` + `har_stream_experiment` | ✅ (paridade exata: summary DP/DL + hard metrics + grid) |
 | `united.R` / `united_loadfulldata.R` (`united`, `loadfulldata`) | experimento "united" + datasets completos | ⬜ (replicar o `loadfulldata` do pytspredit — ver planejamento.md) |
 
 ## Datasets
