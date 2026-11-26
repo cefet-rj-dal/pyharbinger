@@ -23,25 +23,32 @@ from pathlib import Path
 
 import pandas as pd
 
-__all__ = ["examples_anomalies", "examples_changepoints"]
+__all__ = ["examples_anomalies", "examples_changepoints", "examples_motifs"]
 
 _DATA_DIR = Path(__file__).resolve().parent / "data"
 
 
 def _load_collection(fname: str) -> dict[str, pd.DataFrame]:
-    """Load a tidy collection CSV into a dict of per-series DataFrames."""
+    """Load a tidy collection CSV into a dict of per-series DataFrames.
+
+    Columns beyond the ``name``/``idx`` keys and the standard ``serie``/``event``
+    pair (e.g. the ``symbol`` ground-truth label on the ECG motif series) are
+    preserved, dropping values that are missing for every row of a series.
+    """
     raw = pd.read_csv(_DATA_DIR / fname)
+    extra_cols = [c for c in raw.columns if c not in ("name", "idx", "serie", "event")]
     collection: dict[str, pd.DataFrame] = {}
     # Preserve the original series order as stored in the CSV.
     for name in raw["name"].drop_duplicates():
         sub = raw[raw["name"] == name]
-        df = pd.DataFrame(
-            {
-                "serie": sub["serie"].to_numpy(),
-                "event": sub["event"].astype(bool).to_numpy(),
-            }
-        )
-        collection[name] = df.reset_index(drop=True)
+        cols = {
+            "serie": sub["serie"].to_numpy(),
+            "event": sub["event"].astype(bool).to_numpy(),
+        }
+        for col in extra_cols:
+            if not sub[col].isna().all():
+                cols[col] = sub[col].to_numpy()
+        collection[name] = pd.DataFrame(cols).reset_index(drop=True)
     return collection
 
 
@@ -62,3 +69,12 @@ def examples_changepoints() -> dict[str, pd.DataFrame]:
     ``volatility``, ``increasing_amplitude``, ``complex``.
     """
     return _load_collection("examples_changepoints.csv")
+
+
+def examples_motifs() -> dict[str, pd.DataFrame]:
+    """Return the motif/discord example series.
+
+    Keys: ``simple`` and the ECG series ``mitdb100`` / ``mitdb102`` (which carry
+    an extra ``symbol`` column of beat-type ground-truth labels).
+    """
+    return _load_collection("examples_motifs.csv")

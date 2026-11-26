@@ -68,8 +68,8 @@ detecção = DataFrame `[idx, event, type, (seq, seqlen)]`.
 ## Motif / discord (simbólico + matrix profile)
 | R | Python | Backend | Status |
 |---|---|---|---|
-| `trans_sax.R` / `trans_xsax.R` | `TransSax` / `TransXsax` | SAX/xSAX nativo | 🔜 |
-| `hmo_sax.R` / `hmo_xsax.R` / `hdis_sax.R` | `HmoSax` / `HmoXsax` / `HdisSax` | motif/discord via SAX nativo | 🔜 |
+| `trans_sax.R` / `trans_xsax.R` | `TransSax` / `TransXsax` | SAX/xSAX nativo | ✅ (paridade exata) |
+| `hmo_sax.R` / `hmo_xsax.R` / `hdis_sax.R` | `HmoSax` / `HmoXsax` / `HdisSax` | motif/discord via SAX nativo | ✅ (paridade exata nas 3 séries) |
 | `hmo_mp.R` / `hdis_mp.R` | `HmoMp` / `HdisMp` | matrix profile (`tsmp` no R → `stumpy`) | 🧩 `[motif]` |
 
 ## Ensembles / visualização
@@ -93,4 +93,5 @@ detecção = DataFrame `[idx, event, type, (seq, seqlen)]`.
 |---|---|---|
 | `data.R` — `examples_anomalies` (10 séries) | `datasets.examples_anomalies()` | ✅ (CSV, paridade exata) |
 | `data.R` — `examples_changepoints` (7 séries) | `datasets.examples_changepoints()` | ✅ (CSV, paridade exata) |
+| `data.R` — `examples_motifs` (3 séries: simple + mitdb100/102 c/ coluna `symbol`) | `datasets.examples_motifs()` | ✅ (CSV, paridade exata) |
 | miniaturas de benchmark (Yahoo A1–A4, gecco, MIT-BIH, NAB, oil_3w, UCR) + `examples_motifs`/`examples_harbinger` | `datasets.*` + `loadfulldata` | ⬜ (release de streaming/datasets — padrão miniatura + `[bench]` do pytspredit) |

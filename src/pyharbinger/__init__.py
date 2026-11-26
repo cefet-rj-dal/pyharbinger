@@ -43,6 +43,7 @@ from .ensemble import HarEnsembleFuzzy
 from .evaluation import HarEval, HarEvalSoft
 from .harbinger import Harbinger
 from .multivariate import HmuPca
+from .symbolic import HdisSax, HmoSax, HmoXsax, TransSax, TransXsax
 from .utils import (
     har_candidate_selection_firstgroup,
     har_candidate_selection_highgroup,
@@ -59,7 +60,7 @@ from .utils import (
     mas,
 )
 
-__version__ = "0.5.0"
+__version__ = "0.6.0"
 
 __all__ = [
     "HancMl",
@@ -91,7 +92,12 @@ __all__ = [
     "HcpPageHinkley",
     "HcpPelt",
     "HcpScp",
+    "HdisSax",
+    "HmoSax",
+    "HmoXsax",
     "HmuPca",
+    "TransSax",
+    "TransXsax",
     "datasets",
     "har_candidate_selection_firstgroup",
     "har_candidate_selection_highgroup",

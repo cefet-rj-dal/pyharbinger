@@ -163,10 +163,14 @@ fixed on both sides).
 | `hanc_ml` → `HancMl` | detected set | **exact / stochastic** | `ClaKnn(k=3)` exact (events 10,21); probas backend-dependent |
 | `hmu_pca` → `HmuPca` | detected set + residuals | **exact 🐞** | idx 50, res max 1.054 after the R bug fix (§5.1) |
 | `har_ensemble_fuzzy` → `HarEnsembleFuzzy` | consensus set | **adapted** | fuzzy consensus + absolute floor (0.4.7) |
+| `trans_sax`/`trans_xsax` → `TransSax`/`TransXsax` | symbolic codes | **exact** | identical SAX/XSAX words on `simple` (z-norm + type-7 quantile + `cut` include.lowest + base-26/36 padded codes) |
+| `hmo_sax`/`hmo_xsax`/`hdis_sax` → `HmoSax`/`HmoXsax`/`HdisSax` | detected set | **exact** | identical detected-idx sets on all 3 `examples_motifs` series (simple + mitdb100/102). 🐞 R `hdis_sax` tags `type=="motif"` (copy-paste slip); port uses `type=="discord"` (parity is on the idx set) |
 
 ---
 
 ## 7. Open items
+- Confirm with Eduardo the R `hdis_sax` `type=="motif"` copy-paste slip (port uses
+  `"discord"`); fix in the R backport if agreed (idx-set parity is unaffected).
 - Promote the asserted checks into `develop/parity/<fam>.R` + `tests/test_quality_*`
   (R-free), mirroring the pytspredit M3 backfill.
 - Finish the `hanr_arima`++ gate on `examples_anomalies` (10 series) and record its row.

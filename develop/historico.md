@@ -146,17 +146,36 @@ decreasing_amplitude com 13 pontos). `test_fft_sma.py` (idx exato por série + j
 warm-up + guarda de `None`). R não expõe `res` na detecção (só idx/event/type), então o invariante
 é o conjunto de índices. Versões 0.4.8→0.5.0. Abre o tema espectral/simbólico do Ciclo 1.
 
+## M15 — simbólico SAX/XSAX (motif/discord), port FIEL (0.6.0, 2026-11-26, branch `milestone-symbolic-sax`)
+Primeiro marco do tema simbólico do Ciclo 1. `src/pyharbinger/symbolic.py`: `TransSax`/`TransXsax`
+(discretização SAX/xSAX — z-norm ddof=1 + quantis type-7 + `cut(include.lowest)` via
+`searchsorted` + códigos base-26/36 com pad `str_pad`), `HmoSax`/`HmoXsax` (descoberta de motifs:
+palavras repetidas ≥ `qtd`, de-overlap guloso por runs consecutivos + exclusão `±round(w/2)`) e
+`HdisSax` (discords: palavras únicas longe de qualquer padrão repetido, exclusão `±w`). Reusa a
+janela deslizante no espaço simbólico (equivalente a `tspredit::ts_data` sobre strings); entropia
+de Shannon base-2 por palavra guia o desempate (`arrange(desc(total_count), desc(entropy))`,
+ties→seq asc). Dataset `examples_motifs` (3 séries: `simple` + ECG `mitdb100`/`mitdb102` com coluna
+extra `symbol`) extraído do `.RData` → CSV tidy; `datasets.examples_motifs()` + loader generalizado
+p/ colunas extras. **Paridade R↔Python EXATA:** códigos SAX/XSAX idênticos em `simple` + conjuntos
+de idx detectados idênticos nas 3 séries × 3 detectores (hmo_sax/hmo_xsax/hdis_sax), incl. as ECG
+de 7202 pontos (motifs ~1200–1500 janelas; discords simple=9, mitdb100=∅, mitdb102=[3337]). R não
+expõe `res` → invariante = conjunto de idx. `test_symbolic.py` (+15: transforms, entropia, paridade
+exata por série, contrato da tabela, restore sobre NA). 194 testes, ruff limpo, notebook
+`symbolic/01-motifs` compila. Versões 0.5.0→0.6.0. **🐞 Achado:** R `hdis_sax` rotula o resultado
+como `type=="motif"` (lapso de copy-paste de `hmo_sax`); o port usa `type=="discord"` (correto) —
+a confirmar com o Eduardo p/ corrigir no backport R (paridade é sobre idx, não sobre `type`).
+
 ---
 
 ## Estado atual (o resto está em `planejamento.md`)
-- **pyharbinger:** PyPI latest **0.4.8** (`hanr_arima`++); **0.5.0** (`HanrFftSma`) implementada em
-  branch, aguardando revisão. Depende de pydaltoolbox + pytspredit (PyPI).
+- **pyharbinger:** PyPI latest **0.5.0** (`HanrFftSma`); **0.6.0** (simbólico SAX/XSAX) implementada
+  em branch `milestone-symbolic-sax`, aguardando revisão. Depende de pydaltoolbox + pytspredit (PyPI).
 - **Cobertura:** núcleo + avaliação + anomalias base + FFT-híbridos + change points (ruptures
   + nativos + os 3 ++ strucchange/forecast/ocp) + clustering + multivariado (HancMl/HmuPca) +
-  ensemble fuzzy + `HanrArima` (ARIMA++). **Falta** (Ciclo 1): `HanrFftSma`, simbólico (SAX/
-  motif/discord), ensemble simples + plots, streaming/online + datasets de benchmark/`loadfulldata`.
-  **Ciclo 2** (extras): motif-MP (`stumpy`), GARCH (`arch`), EMD (`EMD-signal`), wavelet
-  (`PyWavelets`), DTW, deep/torch.
+  ensemble fuzzy + `HanrArima` (ARIMA++) + `HanrFftSma` + **simbólico (`TransSax`/`TransXsax`/
+  `HmoSax`/`HmoXsax`/`HdisSax`)**. **Falta** (Ciclo 1): ensemble simples + plots, streaming/online
+  + datasets de benchmark/`loadfulldata`. **Ciclo 2** (extras): motif-MP (`stumpy`), GARCH
+  (`arch`), EMD (`EMD-signal`), wavelet (`PyWavelets`), DTW, deep/torch.
 - **R harbinger:** master em **2.1.787**; largou `strucchange`, `ocp` **e `forecast`**; ainda
   importa `changepoint` e as libs do Ciclo 2 (`hht`, `wavelets`, `rugarch`, `tsmp`, `dtwclust`).
   CRAN/commits do R = Eduardo.

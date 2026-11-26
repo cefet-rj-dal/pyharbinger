@@ -4,7 +4,7 @@
 > em `historico.md`; a correspondência de classes R↔Python em `mapeamento.md`; a metodologia
 > e a matriz de paridade em `parity.md`; o kickoff em `PROMPT.md`.
 
-Última atualização: 2026-11-26
+Última atualização: 2026-11-26 (sessão da tarde)
 
 ---
 
@@ -13,21 +13,24 @@
 Port Python do R **harbinger** (detecção de eventos em TS), último da família DAL, depende de
 **pydaltoolbox + pytspredit** (PyPI). Núcleo + avaliação + anomalias base + FFT-híbridos +
 change points (ruptures/nativos/os 3 **++** strucchange/forecast/ocp) + clustering +
-multivariado + ensemble fuzzy + `HanrArima` (ARIMA++) já prontos. **PyPI latest = 0.4.8**
-(publicada em 2026-11-25: fix de backend do `HcpJoinpoint` na 0.4.7, `hanr_arima`++ na 0.4.8).
-História completa: `historico.md`.
+multivariado + ensemble fuzzy + `HanrArima` (ARIMA++) + `HanrFftSma` + **simbólico
+(`TransSax`/`TransXsax`/`HmoSax`/`HmoXsax`/`HdisSax`)** já prontos. **PyPI latest = 0.5.0**
+(`HanrFftSma`, publicada em 2026-11-25). História completa: `historico.md`.
 
 ---
 
 ## O que falta — roadmap até a 1.0.0
 
-> Pendente de revisão: **0.5.0 `HanrFftSma`** está na branch `milestone-fft-sma` (commit
-> `adb7222`), implementada e verde, aguardando o "pode fazer" do Eduardo para push/ff-merge/PyPI.
-> Detalhes do que já foi feito em `historico.md`.
+> Pendente de revisão: **0.6.0 simbólico** está na branch `milestone-symbolic-sax`,
+> implementada e verde (paridade exata com o R), aguardando o "pode fazer" do Eduardo para
+> push/ff-merge/PyPI. Detalhes em `historico.md`.
 
 ### Ciclo 1 — baixa dependência (fechar a cobertura, núcleo enxuto)
-1. ⬜ **Simbólico (motif/discord nativo)** — `TransSax`/`TransXsax`, `HmoSax`/`HmoXsax`/
-   `HdisSax` (SAX/xSAX, nativo). Embarca `examples_motifs`.
+1. ✅ **Simbólico (motif/discord nativo)** — `TransSax`/`TransXsax`, `HmoSax`/`HmoXsax`/
+   `HdisSax` (SAX/xSAX, nativo). Embarca `examples_motifs`. **Feito na 0.6.0** (paridade
+   exata R↔Python nas 3 séries). ⚠️ R `hdis_sax` rotula o resultado como `type=="motif"`
+   (lapso de copy-paste); o port usa `type=="discord"` — **confirmar com o Eduardo** se
+   corrige o R no backport (paridade é sobre o conjunto de índices, não sobre `type`).
 2. ⬜ **Ensemble simples + visualização** — `HarEnsemble` (não-fuzzy) + `har_plot`/
    `har_plot_ensemble`/`har_ensemble_plot_models` (matplotlib, dep do núcleo).
 3. ⬜ **Streaming / online + datasets (fecha o Ciclo 1)** — framework online (memory/sources/
