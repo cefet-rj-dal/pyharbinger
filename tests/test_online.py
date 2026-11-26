@@ -205,3 +205,44 @@ def test_simulated_collector_exhausts():
 def test_stream_collector_base_is_abstract():
     with pytest.raises(NotImplementedError):
         HarStreamCollector().get_next()
+
+
+def test_real_collector_over_kafka_like_consumer_matches_stub():
+    # A realistic collector reading one message at a time from a kafka-python-like
+    # consumer (iterator of messages with a `.value`) must match the stub.
+    class _Message:
+        def __init__(self, value):
+            self.value = value
+
+    class _FakeConsumer:
+        def __init__(self, values):
+            self._messages = [_Message(v) for v in values]
+            self.closed = False
+
+        def __iter__(self):
+            return iter(self._messages)
+
+        def close(self):
+            self.closed = True
+
+    class KafkaCollector(HarStreamCollector):
+        def __init__(self, consumer):
+            self._consumer = consumer
+            self._messages = iter(consumer)
+
+        def get_next(self):
+            message = next(self._messages, None)
+            return None if message is None else float(message.value)
+
+        def close(self):
+            self._consumer.close()
+
+    consumer = _FakeConsumer(SERIE)
+    source = HarSourceKafka("t", ["b:9092"], "g", collector=KafkaCollector(consumer))
+    session = HarOnlineSession(source=source, detector=_detector(), warmup_size=3, batch_size=2)
+    session.fit()
+    session.run()
+    assert _events(session.collect_detection()) == [2, 8, 15]
+    # Lifecycle: closing the source closes the underlying consumer.
+    source.close()
+    assert consumer.closed

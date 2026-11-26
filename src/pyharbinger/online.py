@@ -345,6 +345,11 @@ class HarSourceKafka:
             "cursor": self.cursor,
         }
 
+    def close(self):
+        """Release the attached collector's resources, if any."""
+        if self.collector is not None and hasattr(self.collector, "close"):
+            self.collector.close()
+
 
 # --- session -----------------------------------------------------------------
 
