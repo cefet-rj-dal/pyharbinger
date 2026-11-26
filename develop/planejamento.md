@@ -21,16 +21,15 @@ multivariado + ensemble fuzzy + `HanrArima` (ARIMA++) + `HanrFftSma` + **simból
 
 ## O que falta — roadmap até a 1.0.0
 
-> Pendente de revisão: **0.6.0 simbólico** está na branch `milestone-symbolic-sax`,
-> implementada e verde (paridade exata com o R), aguardando o "pode fazer" do Eduardo para
-> push/ff-merge/PyPI. Detalhes em `historico.md`.
+> **0.6.0 simbólico PUBLICADA** (PyPI, mesclada em `main` HEAD `47c01a2`). Detalhes em
+> `historico.md`.
 
 ### Ciclo 1 — baixa dependência (fechar a cobertura, núcleo enxuto)
 1. ✅ **Simbólico (motif/discord nativo)** — `TransSax`/`TransXsax`, `HmoSax`/`HmoXsax`/
    `HdisSax` (SAX/xSAX, nativo). Embarca `examples_motifs`. **Feito na 0.6.0** (paridade
-   exata R↔Python nas 3 séries). ⚠️ R `hdis_sax` rotula o resultado como `type=="motif"`
-   (lapso de copy-paste); o port usa `type=="discord"` — **confirmar com o Eduardo** se
-   corrige o R no backport (paridade é sobre o conjunto de índices, não sobre `type`).
+   exata R↔Python nas 3 séries). R `hdis_sax` rotulava o resultado como `type=="motif"`
+   (lapso de copy-paste) → **corrigido para `"discord"` nos dois lados** (paridade é sobre o
+   conjunto de índices, não sobre `type`). Commit do R pendente de versão Boeing (ver abaixo).
 2. ⬜ **Ensemble simples + visualização** — `HarEnsemble` (não-fuzzy) + `har_plot`/
    `har_plot_ensemble`/`har_ensemble_plot_models` (matplotlib, dep do núcleo).
 3. ⬜ **Streaming / online + datasets (fecha o Ciclo 1)** — framework online (memory/sources/
