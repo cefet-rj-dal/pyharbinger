@@ -82,9 +82,9 @@ detecção = DataFrame `[idx, event, type, (seq, seqlen)]`.
 ## Streaming / online / infra (fecha o Ciclo 1)
 | R | Python | Status |
 |---|---|---|
-| `har_online_memory.R` (`har_memory_full/last_observations/sliding`) | runners de memória | ⬜ |
-| `har_online_sources.R` (`har_source_callback/dataframe/kafka/simulated`, `source_info`, `ingest`, `next_observation`, `is_finished`) | fontes online | ⬜ |
-| `har_online_executor.R` / `har_online_session.R` (`har_online_detect_only/incremental/refit_full`, `run_online`, `step_online`, `har_online_session`) | executor/sessão online | ⬜ |
+| `har_online_memory.R` (`har_memory_full/last_observations/sliding`) | `HarMemoryFull`/`HarMemoryLastObservations`/`HarMemorySliding` + `har_memory_label` | ✅ (paridade exata) |
+| `har_online_sources.R` (`har_source_callback/dataframe/kafka/simulated`, `source_info`, `ingest`, `next_observation`, `is_finished`) | `HarSourceSimulated`/`HarSourceDataframe`/`HarSourceCallback` (`.next_observation`/`.info`) | ✅ (kafka pulado — reticulate-only no R) |
+| `har_online_executor.R` / `har_online_session.R` (`har_online_detect_only/incremental/refit_full`, `run_online`, `step_online`, `har_online_session`) | `HarOnlineRefitFull`/`HarOnlineDetectOnly`/`HarOnlineIncremental` + `HarOnlineSession` (`.fit`/`.ingest`/`.step`/`.run`/`.is_finished`/`.collect_*`) | ✅ (paridade exata: eventos+DP+DL) |
 | `har_stream_eval.R` / `har_stream_experiment.R` (`collect_batch_log/detection/trace`) | avaliação em streaming | ⬜ |
 | `united.R` / `united_loadfulldata.R` (`united`, `loadfulldata`) | experimento "united" + datasets completos | ⬜ (replicar o `loadfulldata` do pytspredit — ver planejamento.md) |
 

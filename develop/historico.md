@@ -198,20 +198,37 @@ em `dependencies` do `pyproject`. 210 testes (+8 test_plots.py, backend Agg), ru
 (ensemble + visualização). **Falta do Ciclo 1:** só o item-3 (streaming/online + datasets de
 benchmark/`loadfulldata`).
 
+## M18 — framework online/streaming (item-3a do Ciclo 1) (0.9.0, 2026-11-26, branch `milestone-online`)
+Port FIEL do framework online R (`har_online_memory`/`executor`/`sources`/`session`, ~1045 linhas) →
+`src/pyharbinger/online.py` (OO). **Fontes:** `HarSourceSimulated` (replay de vetor/matriz/DataFrame),
+`HarSourceDataframe` (seleção de colunas valor/timestamp), `HarSourceCallback` (pull por função);
+**Kafka pulado** (no R é stub reticulate-only; decisão do Eduardo). **Memória:** `HarMemoryFull`/
+`HarMemorySliding(batches)`/`HarMemoryLastObservations(n)` + `har_memory_label`. **Execução:**
+`HarOnlineRefitFull`/`HarOnlineDetectOnly`/`HarOnlineIncremental`. **Sessão:** `HarOnlineSession`
+(métodos `.fit`/`.ingest`/`.step`/`.run`/`.is_finished`/`.collect_detection`/`.collect_trace`/
+`.collect_batch_log`) orquestra warmup→batching→memória→trace (DP/DL). **idx 0-based** (R é 1-based) p/
+casar com a convenção offline do pyharbinger. **Paridade R↔Python EXATA** (verificada via Rscript
+sourcing dos 4 arquivos online + hcp_page_hinkley, série de 20 pts): eventos (0-based 2,8,15 = R 3,9,16),
+detection_probability, detection_lag_batches/observations, batch_frequency/detection_frequency do trace,
+nº de batches — idênticos em **full/sliding(2)/last_obs(4)** × **refit_full/detect_only** × **pull/push
+(ingest)**. 222 testes (+12 test_online.py), ruff limpo, notebook `online/01-online` compila, build+twine
+PASS. Versões 0.8.0→0.9.0. **Falta do item 3:** 3b (`har_stream_eval`/`har_stream_experiment`) e 3c
+(`united`+`loadfulldata`+datasets de benchmark). R backport: NÃO necessário (port fiel; o R já é o original).
+
 ---
 
 ## Estado atual (o resto está em `planejamento.md`)
-- **pyharbinger:** PyPI latest **0.7.0** (`HarEnsemble` + fix HanrHistogram, publicada); **0.8.0**
-  (plots `har_plot*`) em branch `milestone-plots`, aguardando revisão. Depende de pydaltoolbox +
-  pytspredit + **matplotlib** (PyPI).
+- **pyharbinger:** PyPI latest **0.8.0** (plots, publicada); **0.9.0** (framework online, item-3a) em
+  branch `milestone-online`, aguardando revisão. Depende de pydaltoolbox + pytspredit + matplotlib (PyPI).
 - **Cobertura:** núcleo + avaliação + anomalias base + FFT-híbridos + change points (ruptures
   + nativos + os 3 ++ strucchange/forecast/ocp) + clustering + multivariado (HancMl/HmuPca) +
   ensemble (`HarEnsemble` majoritário + `HarEnsembleFuzzy`) + `HanrArima` (ARIMA++) + `HanrFftSma`
   + **simbólico (`TransSax`/`TransXsax`/`HmoSax`/`HmoXsax`/`HdisSax`)** + **plots (`har_plot`/
-  `har_ensemble_plot`/`har_ensemble_plot_models`)**. **Falta** (Ciclo 1): só streaming/online +
-  datasets de benchmark/`loadfulldata`. **Ciclo 2** (extras): motif-MP (`stumpy`), GARCH (`arch`),
-  EMD (`EMD-signal`), wavelet (`PyWavelets`), DTW, deep/torch.
-- **R harbinger:** master em **2.1.787**; largou `strucchange`, `ocp` **e `forecast`**; ainda
-  importa `changepoint` e as libs do Ciclo 2 (`hht`, `wavelets`, `rugarch`, `tsmp`, `dtwclust`).
-  CRAN/commits do R = Eduardo.
+  `har_ensemble_plot`/`har_ensemble_plot_models`)** + **online (`HarOnlineSession` + fontes/memória/
+  execução)**. **Falta** (Ciclo 1): só 3b (stream eval) + 3c (`united`/`loadfulldata`/datasets de
+  benchmark). **Ciclo 2** (extras): motif-MP (`stumpy`), GARCH (`arch`), EMD (`EMD-signal`), wavelet
+  (`PyWavelets`), DTW, deep/torch.
+- **R harbinger:** master em **2.2.707** (`hdis_sax`→discord); largou `strucchange`, `ocp` **e
+  `forecast`**; ainda importa `changepoint` e as libs do Ciclo 2 (`hht`, `wavelets`, `rugarch`,
+  `tsmp`, `dtwclust`). CRAN/commits do R = Eduardo.
 - `main` é a única branch de código (os `milestone-*` já mesclados foram apagados).

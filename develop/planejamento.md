@@ -34,12 +34,15 @@ multivariado + ensemble fuzzy + `HanrArima` (ARIMA++) + `HanrFftSma` + **simból
    corrigiu um bug latente do `HanrHistogram` — bins right-closed) + **plots** `har_plot`/
    `har_ensemble_plot`/`har_ensemble_plot_models` (matplotlib, agora dep do núcleo; adaptado,
    0.8.0). **Fecha o item 2.**
-3. ⬜ **Streaming / online + datasets (fecha o Ciclo 1)** — framework online (memory/sources/
-   executor/session) + `har_stream_eval`/`har_stream_experiment` + `united`/`loadfulldata`.
-   ⚠️ **`loadfulldata` NÃO é trivial** — replicar o mecanismo do pytspredit: **miniaturas
-   embarcadas** (CSV/JSON + `manifest.json{url,kind}`) + **`datasets.loadfulldata(nome)`** que
-   baixa o completo das MESMAS urls remotas. Benchmark de detecção: Yahoo A1–A4, gecco, MIT-BIH,
-   NAB, oil_3w, UCR, + `examples_harbinger`.
+3. 🚧 **Streaming / online + datasets (fecha o Ciclo 1)** — fatiado em 3 sub-releases (Eduardo):
+   - **3a ✅ framework online (0.9.0)** — `HarOnlineSession` + fontes (`HarSourceSimulated`/
+     `HarSourceDataframe`/`HarSourceCallback`) + políticas de memória + estratégias de execução.
+     Paridade exata R↔Python (eventos+DP+DL). **Kafka pulado** (stub reticulate-only no R).
+   - **3b ⬜ avaliação em streaming** — `har_stream_eval` + `har_stream_experiment` (depende de 3a).
+   - **3c ⬜ `united` + `loadfulldata` + datasets de benchmark.** ⚠️ **`loadfulldata` NÃO é
+     trivial** — replicar o mecanismo do pytspredit: **miniaturas embarcadas** (CSV/JSON +
+     `manifest.json{url,kind}`) + **`datasets.loadfulldata(nome)`** que baixa o completo das MESMAS
+     urls remotas. Benchmark: Yahoo A1–A4, gecco, MIT-BIH, NAB, oil_3w, UCR, + `examples_harbinger`.
 
 ### Ciclo 2 — dependências pesadas (extras opcionais) — *a refinar com o Eduardo*
 Uma família de dep por release; import preguiçoso + erro acionável nomeando o extra. Para cada

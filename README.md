@@ -65,6 +65,7 @@ Every detector extends `Harbinger` and returns a detection table with columns
 | **Symbolic** | `TransSax` / `TransXsax` (SAX / XSAX encoding), `HmoSax` / `HmoXsax` (motifs), `HdisSax` (discords) |
 | **Ensemble** | `HarEnsemble` (majority vote), `HarEnsembleFuzzy` (fuzzy consensus) |
 | **Plotting** | `har_plot`, `har_ensemble_plot`, `har_ensemble_plot_models` (matplotlib) |
+| **Online / streaming** | `HarOnlineSession` + sources (`HarSourceSimulated`/`HarSourceDataframe`/`HarSourceCallback`), memory policies, execution strategies |
 | **Datasets** | `datasets.examples_anomalies()`, `datasets.examples_changepoints()`, `datasets.examples_motifs()` |
 
 Detectors accept a univariate series or, for the multivariate ones, a
