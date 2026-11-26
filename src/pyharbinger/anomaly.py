@@ -392,10 +392,16 @@ class HanrHistogram(Harbinger):
         n = len(values)
 
         bin_edges = r_pretty(float(values.min()), float(values.max()), _nclass_sturges(n))
-        counts, _ = np.histogram(values, bins=bin_edges)
+        # R graphics::hist uses right-closed bins (right=TRUE): a value is counted
+        # in (breaks[i], breaks[i+1]], with the minimum folded into the first bin
+        # (include.lowest). np.histogram is left-closed, which miscounts values that
+        # land exactly on a break, so bin the values the R way instead.
+        n_bins = len(bin_edges) - 1
+        bin_of = np.searchsorted(bin_edges, values, side="left") - 1
+        bin_of = np.clip(bin_of, 0, n_bins - 1)
+        counts = np.bincount(bin_of, minlength=n_bins)
         widths = np.diff(bin_edges)
         density = counts / (n * widths)
-        n_bins = len(density)
 
         anomalies = np.zeros(n, dtype=bool)
         for i in range(n):

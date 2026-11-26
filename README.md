@@ -63,6 +63,7 @@ Every detector extends `Harbinger` and returns a detection table with columns
 | **Classification** | `HancMl` (supervised; wraps a pydaltoolbox classifier) |
 | **Multivariate** | `HmuPca` (PCA reconstruction error) |
 | **Symbolic** | `TransSax` / `TransXsax` (SAX / XSAX encoding), `HmoSax` / `HmoXsax` (motifs), `HdisSax` (discords) |
+| **Ensemble** | `HarEnsemble` (majority vote), `HarEnsembleFuzzy` (fuzzy consensus) |
 | **Datasets** | `datasets.examples_anomalies()`, `datasets.examples_changepoints()`, `datasets.examples_motifs()` |
 
 Detectors accept a univariate series or, for the multivariate ones, a

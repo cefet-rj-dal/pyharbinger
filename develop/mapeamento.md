@@ -76,7 +76,7 @@ detecção = DataFrame `[idx, event, type, (seq, seqlen)]`.
 | R | Python | Status |
 |---|---|---|
 | `har_ensemble_fuzzy.R` (`har_ensemble_fuzzy`, `fuzzify`) | `HarEnsembleFuzzy` (consenso fuzzy + piso absoluto) | ✅ |
-| `har_ensemble.R` (`har_ensemble`) | `HarEnsemble` | 🔜 |
+| `har_ensemble.R` (`har_ensemble`) | `HarEnsemble` (voto majoritário) | ✅ (paridade exata) |
 | `har_plot.R` / `har_plot_ensemble.R` | `har_plot` / `har_plot_ensemble` / `har_ensemble_plot_models` | 🔜 (matplotlib, dep do núcleo) |
 
 ## Streaming / online / infra (fecha o Ciclo 1)

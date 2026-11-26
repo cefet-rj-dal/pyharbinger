@@ -1,4 +1,4 @@
-"""Fuzzy consensus ensemble for Harbinger detectors."""
+"""Ensemble detectors for Harbinger: majority vote and fuzzy consensus."""
 from __future__ import annotations
 
 import numpy as np
@@ -6,7 +6,82 @@ import pandas as pd
 
 from .harbinger import Harbinger, as_series_array
 
-__all__ = ["HarEnsembleFuzzy"]
+__all__ = ["HarEnsemble", "HarEnsembleFuzzy"]
+
+
+class HarEnsemble(Harbinger):
+    """Majority-vote ensemble across several Harbinger detectors.
+
+    Each member detector votes per observation; a position is flagged when more
+    than half of the members agree. The event type is ``"changepoint"`` when any
+    voting member reports one, otherwise ``"anomaly"``.
+
+    Theory
+    ------
+    For ``m`` detectors the vote count ``res`` is the row-wise sum of the member
+    event masks, and an event fires where ``res > m / 2``.
+
+    References
+    ----------
+    - Ogasawara E, Salles R, Porto F, Pacitti E (2025). Event Detection in Time
+      Series. Springer. doi:10.1007/978-3-031-75941-3
+
+    Porting
+    -------
+    Mirrors ``har_ensemble.R``. Fidelity: exact (same detected sets when the
+    member detectors match R).
+    """
+
+    def __init__(self, *models: Harbinger):
+        super().__init__()
+        if not models:
+            raise ValueError("At least one detector is required.")
+        self.models = list(models)
+        self.har_outliers_check = None
+
+    def fit(self, serie, **kwargs) -> HarEnsemble:
+        if serie is None:
+            raise ValueError("No data was provided for computation")
+        clean = as_series_array(serie)
+        clean = clean[~np.isnan(clean)]
+        self.models = [model.fit(clean, **kwargs) for model in self.models]
+        return self
+
+    def detect(self, serie, **kwargs) -> pd.DataFrame:
+        if serie is None:
+            raise ValueError("No data was provided for computation")
+        self._store_refs(serie)
+
+        vote_cols = []
+        type_cols = []
+        for model in self.models:
+            detection = model.detect(self.serie, **kwargs)
+            evt = detection["event"].fillna(False).to_numpy(dtype=bool)
+            typ = detection["type"].fillna("").to_numpy(dtype=object)
+            vote_cols.append(evt.astype(float))
+            type_cols.append(typ)
+
+        res = np.sum(np.column_stack(vote_cols), axis=1)
+        events = res > len(self.models) / 2
+
+        type_matrix = np.column_stack(type_cols)
+        consensus = np.full(len(res), "", dtype=object)
+        for i, row in enumerate(type_matrix):
+            present = row[row != ""]
+            if "changepoint" in present:
+                consensus[i] = "changepoint"
+            elif present.size:
+                consensus[i] = "anomaly"
+        consensus[~events] = ""
+
+        anomalies = (consensus == "anomaly") & events
+        change_points = (consensus == "changepoint") & events
+
+        detection = self._restore_refs(
+            anomalies=anomalies, change_points=change_points, res=res
+        )
+        detection.attrs["score"] = detection.attrs["res"]
+        return detection
 
 
 def _fuzzify_triangle(event: np.ndarray, event_type: np.ndarray, tolerance: int):

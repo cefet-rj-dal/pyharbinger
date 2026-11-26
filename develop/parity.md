@@ -162,7 +162,9 @@ fixed on both sides).
 | `hanct_kmeans` → `HanctKmeans` | detected set | **stochastic** | event=50, centers=3; k-means init RNG |
 | `hanc_ml` → `HancMl` | detected set | **exact / stochastic** | `ClaKnn(k=3)` exact (events 10,21); probas backend-dependent |
 | `hmu_pca` → `HmuPca` | detected set + residuals | **exact 🐞** | idx 50, res max 1.054 after the R bug fix (§5.1) |
+| `har_ensemble` → `HarEnsemble` | detected set | **exact** | majority vote (`res > m/2`); matches R on `examples_anomalies` when members match R (fft/fbiad/hist) |
 | `har_ensemble_fuzzy` → `HarEnsembleFuzzy` | consensus set | **adapted** | fuzzy consensus + absolute floor (0.4.7) |
+| `hanr_hist` → `HanrHistogram` | detected set | **exact** | 🐞 right-closed bins (R `hist` `right=TRUE`): values on a break counted in the lower bin — fixed in 0.7.0 → exact on all 10 `examples_anomalies` (was only validated on `simple`) |
 | `trans_sax`/`trans_xsax` → `TransSax`/`TransXsax` | symbolic codes | **exact** | identical SAX/XSAX words on `simple` (z-norm + type-7 quantile + `cut` include.lowest + base-26/36 padded codes) |
 | `hmo_sax`/`hmo_xsax`/`hdis_sax` → `HmoSax`/`HmoXsax`/`HdisSax` | detected set | **exact** | identical detected-idx sets on all 3 `examples_motifs` series (simple + mitdb100/102). 🐞 R `hdis_sax` tags `type=="motif"` (copy-paste slip); port uses `type=="discord"` (parity is on the idx set) |
 

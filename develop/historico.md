@@ -165,17 +165,38 @@ exata por série, contrato da tabela, restore sobre NA). 194 testes, ruff limpo,
 como `type=="motif"` (lapso de copy-paste de `hmo_sax`); o port usa `type=="discord"` (correto) —
 a confirmar com o Eduardo p/ corrigir no backport R (paridade é sobre idx, não sobre `type`).
 
+## M16 — HarEnsemble (voto majoritário) + fix do HanrHistogram (0.7.0, 2026-11-26, branch `milestone-ensemble`)
+Segundo passo do Ciclo-1 pós-simbólico. `src/pyharbinger/ensemble.py`: **`HarEnsemble`** — port
+fiel do R `har_ensemble` (voto majoritário: `res = soma dos votos`, evento onde `res > m/2`; tipo =
+`"changepoint"` se algum membro votar change point, senão `"anomaly"`). Reusa `Harbinger` base; `fit`
+treina cada membro na série sem NAs; `detect` empilha os votos. **🐞 Bug latente encontrado +
+corrigido:** o ensemble revelou que `HanrHistogram` divergia do R na série `tt` (R:
+`0,11,23,37,49,89,100`; Py: `11,37,89,100`). Causa: `np.histogram` conta com bins **fechados à
+esquerda** `[a,b)`, mas `graphics::hist` do R usa **fechados à direita** (`right=TRUE`) `(a,b]` — o
+valor `1.0` (e o bin `(1.0,1.5]`) caía em bin diferente, deslocando a densidade por cima/baixo do
+limiar `0.05`. R é canônico aqui → **fix só no Python** (contagem right-closed via
+`searchsorted(side="left")-1` + `bincount`); a busca do bin na detecção (findInterval left-closed via
+`searchsorted(side="right")`) já estava certa. **`HanrHistogram` agora EXATO nas 10 séries**
+`examples_anomalies` (antes só validado em `simple`). `HarEnsemble` **EXATO vs R** em
+simple/contextual/tt/volatile (membros fft+fbiad+hist). 202 testes (+8: 4 ensemble-paridade
+parametrizados + 3 unit + 1 regressão histograma right-closed), ruff limpo, notebook
+`ensemble/01-ensemble` compila. Versões 0.6.0→0.7.0. **Falta do item 2 do Ciclo 1:** plots
+(`har_plot*`). **Também nesta sessão:** R `hdis_sax` corrigido p/ `type=="discord"` (commit local
+`f2a9193c`, versão Boeing **2.2.707** — novo minor reinicia a sequência; push ao master bloqueado
+pelo harness, pendente do Eduardo).
+
 ---
 
 ## Estado atual (o resto está em `planejamento.md`)
-- **pyharbinger:** PyPI latest **0.5.0** (`HanrFftSma`); **0.6.0** (simbólico SAX/XSAX) implementada
-  em branch `milestone-symbolic-sax`, aguardando revisão. Depende de pydaltoolbox + pytspredit (PyPI).
+- **pyharbinger:** PyPI latest **0.6.0** (simbólico SAX/XSAX, publicada); **0.7.0** (`HarEnsemble` +
+  fix HanrHistogram) em branch `milestone-ensemble`, aguardando revisão. Depende de pydaltoolbox +
+  pytspredit (PyPI).
 - **Cobertura:** núcleo + avaliação + anomalias base + FFT-híbridos + change points (ruptures
   + nativos + os 3 ++ strucchange/forecast/ocp) + clustering + multivariado (HancMl/HmuPca) +
-  ensemble fuzzy + `HanrArima` (ARIMA++) + `HanrFftSma` + **simbólico (`TransSax`/`TransXsax`/
-  `HmoSax`/`HmoXsax`/`HdisSax`)**. **Falta** (Ciclo 1): ensemble simples + plots, streaming/online
-  + datasets de benchmark/`loadfulldata`. **Ciclo 2** (extras): motif-MP (`stumpy`), GARCH
-  (`arch`), EMD (`EMD-signal`), wavelet (`PyWavelets`), DTW, deep/torch.
+  ensemble (`HarEnsemble` majoritário + `HarEnsembleFuzzy`) + `HanrArima` (ARIMA++) + `HanrFftSma`
+  + **simbólico (`TransSax`/`TransXsax`/`HmoSax`/`HmoXsax`/`HdisSax`)**. **Falta** (Ciclo 1): plots
+  (`har_plot*`), streaming/online + datasets de benchmark/`loadfulldata`. **Ciclo 2** (extras):
+  motif-MP (`stumpy`), GARCH (`arch`), EMD (`EMD-signal`), wavelet (`PyWavelets`), DTW, deep/torch.
 - **R harbinger:** master em **2.1.787**; largou `strucchange`, `ocp` **e `forecast`**; ainda
   importa `changepoint` e as libs do Ciclo 2 (`hht`, `wavelets`, `rugarch`, `tsmp`, `dtwclust`).
   CRAN/commits do R = Eduardo.

@@ -33,6 +33,14 @@ def test_hanr_histogram_matches_r():
     assert _events(det) == [0, 49]
 
 
+def test_hanr_histogram_right_closed_bins_matches_r():
+    # Regression: R graphics::hist uses right-closed bins (right=TRUE); values on
+    # a break (e.g. 1.0 in `tt`) must be counted in the lower bin, else the density
+    # crosses the 0.05 threshold and 0/23/49 are missed.
+    tt = datasets.examples_anomalies()["tt"]["serie"].to_numpy()
+    assert _events(HanrHistogram().detect(tt)) == [0, 11, 23, 37, 49, 89, 100]
+
+
 def test_r_pretty_matches_r_hist_breaks():
     breaks = r_pretty(float(SIMPLE.min()), float(SIMPLE.max()), _nclass_sturges(len(SIMPLE)))
     assert np.allclose(breaks, [-1.0, -0.5, 0.0, 0.5, 1.0, 1.5])
