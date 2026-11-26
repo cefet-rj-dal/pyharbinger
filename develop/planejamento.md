@@ -40,10 +40,12 @@ multivariado + ensemble fuzzy + `HanrArima` (ARIMA++) + `HanrFftSma` + **simból
      Paridade exata R↔Python (eventos+DP+DL). **Kafka pulado** (stub reticulate-only no R).
    - **3b ✅ avaliação em streaming (0.10.0)** — `HarStreamEval` + `har_stream_experiment`. Paridade
      exata R↔Python (summary DP/DL + hard metrics + tabela do grid).
-   - **3c ⬜ `united` + `loadfulldata` + datasets de benchmark.** ⚠️ **`loadfulldata` NÃO é
-     trivial** — replicar o mecanismo do pytspredit: **miniaturas embarcadas** (CSV/JSON +
-     `manifest.json{url,kind}`) + **`datasets.loadfulldata(nome)`** que baixa o completo das MESMAS
-     urls remotas. Benchmark: Yahoo A1–A4, gecco, MIT-BIH, NAB, oil_3w, UCR, + `examples_harbinger`.
+   - **3c — `united` datasets + `loadfulldata` + runner:** fatiado em 2 (Eduardo).
+     - **3c-i ✅ datasets (0.11.0)** — exportador `united/etl/py_export.R` gera miniaturas Python
+       (CSV + `manifest.json`) p/ o pyharbinger + full `.csv.gz` commitados no repo `united`
+       (URLs raw). `datasets.benchmark`/`list_benchmarks`/`benchmark_url`/`loadfulldata`
+       (urllib+gzip, sem dep nova) + `examples_harbinger`. 26 datasets, paridade exata.
+     - **3c-ii ⬜ runner `united()`** — portar `harbinger/R/united.R` (606 linhas) → fecha o Ciclo 1.
 
 ### Ciclo 2 — dependências pesadas (extras opcionais) — *a refinar com o Eduardo*
 Uma família de dep por release; import preguiçoso + erro acionável nomeando o extra. Para cada

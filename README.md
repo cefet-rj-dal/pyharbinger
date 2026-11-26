@@ -66,7 +66,7 @@ Every detector extends `Harbinger` and returns a detection table with columns
 | **Ensemble** | `HarEnsemble` (majority vote), `HarEnsembleFuzzy` (fuzzy consensus) |
 | **Plotting** | `har_plot`, `har_ensemble_plot`, `har_ensemble_plot_models` (matplotlib) |
 | **Online / streaming** | `HarOnlineSession` + sources (`HarSourceSimulated`/`HarSourceDataframe`/`HarSourceCallback`/`HarSourceKafka` + collector seam), memory policies, execution strategies; `HarStreamEval` + `har_stream_experiment` |
-| **Datasets** | `datasets.examples_anomalies()`, `datasets.examples_changepoints()`, `datasets.examples_motifs()` |
+| **Datasets** | `datasets.examples_anomalies()`, `datasets.examples_changepoints()`, `datasets.examples_motifs()`, `datasets.examples_harbinger()`; benchmark collection via `datasets.benchmark()` / `datasets.loadfulldata()` (Yahoo, gecco, MIT-BIH, NAB, oil_3w, UCR) |
 
 Detectors accept a univariate series or, for the multivariate ones, a
 `DataFrame` with one column per variable.

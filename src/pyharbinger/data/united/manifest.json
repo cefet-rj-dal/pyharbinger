@@ -1,0 +1,210 @@
+{
+  "gecco": {
+    "kind": "frame_list",
+    "columns": ["idx", "value", "event", "type"],
+    "series_mini": "tp",
+    "n_series_full": 10,
+    "full_rows": 2791320,
+    "full_url": "https://raw.githubusercontent.com/cefet-rj-dal/united/refs/heads/main/python/gecco.csv.gz"
+  },
+  "A1Benchmark": {
+    "kind": "frame_list",
+    "columns": ["idx", "value", "event", "type"],
+    "series_mini": "real_1",
+    "n_series_full": 67,
+    "full_rows": 94866,
+    "full_url": "https://raw.githubusercontent.com/cefet-rj-dal/united/refs/heads/main/python/A1Benchmark.csv.gz"
+  },
+  "A2Benchmark": {
+    "kind": "frame_list",
+    "columns": ["idx", "value", "event", "type"],
+    "series_mini": "synthetic_1",
+    "n_series_full": 100,
+    "full_rows": 142100,
+    "full_url": "https://raw.githubusercontent.com/cefet-rj-dal/united/refs/heads/main/python/A2Benchmark.csv.gz"
+  },
+  "A3Benchmark": {
+    "kind": "frame_list",
+    "columns": ["idx", "value", "event", "type"],
+    "series_mini": "TS1",
+    "n_series_full": 100,
+    "full_rows": 168000,
+    "full_url": "https://raw.githubusercontent.com/cefet-rj-dal/united/refs/heads/main/python/A3Benchmark.csv.gz"
+  },
+  "A4Benchmark": {
+    "kind": "frame_list",
+    "columns": ["idx", "value", "event", "type"],
+    "series_mini": "TS1",
+    "n_series_full": 100,
+    "full_rows": 168000,
+    "full_url": "https://raw.githubusercontent.com/cefet-rj-dal/united/refs/heads/main/python/A4Benchmark.csv.gz"
+  },
+  "mit_bih_MLII": {
+    "kind": "frame_list",
+    "columns": ["idx", "value", "event", "seq", "seqlen"],
+    "series_mini": "r100_MLII",
+    "n_series_full": 5,
+    "full_rows": 3250000,
+    "full_url": "https://raw.githubusercontent.com/cefet-rj-dal/united/refs/heads/main/python/mit_bih_MLII.csv.gz"
+  },
+  "mit_bih_V1": {
+    "kind": "frame_list",
+    "columns": ["idx", "value", "event", "seq", "seqlen"],
+    "series_mini": "r101_V1",
+    "n_series_full": 5,
+    "full_rows": 3250000,
+    "full_url": "https://raw.githubusercontent.com/cefet-rj-dal/united/refs/heads/main/python/mit_bih_V1.csv.gz"
+  },
+  "mit_bih_V2": {
+    "kind": "frame_list",
+    "columns": ["idx", "value", "event", "seq", "seqlen"],
+    "series_mini": "r102_V2",
+    "n_series_full": 4,
+    "full_rows": 2600000,
+    "full_url": "https://raw.githubusercontent.com/cefet-rj-dal/united/refs/heads/main/python/mit_bih_V2.csv.gz"
+  },
+  "mit_bih_V5": {
+    "kind": "frame_list",
+    "columns": ["idx", "value", "event", "seq", "seqlen"],
+    "series_mini": "r100_V5",
+    "n_series_full": 5,
+    "full_rows": 3250000,
+    "full_url": "https://raw.githubusercontent.com/cefet-rj-dal/united/refs/heads/main/python/mit_bih_V5.csv.gz"
+  },
+  "nab_artificialWithAnomaly": {
+    "kind": "frame_list",
+    "columns": ["idx", "value", "event", "type"],
+    "series_mini": "art_daily_flatmiddle",
+    "n_series_full": 5,
+    "full_rows": 20160,
+    "full_url": "https://raw.githubusercontent.com/cefet-rj-dal/united/refs/heads/main/python/nab_artificialWithAnomaly.csv.gz"
+  },
+  "nab_realAdExchange": {
+    "kind": "frame_list",
+    "columns": ["idx", "value", "event", "type"],
+    "series_mini": "exchange-2_cpc_results",
+    "n_series_full": 6,
+    "full_rows": 9610,
+    "full_url": "https://raw.githubusercontent.com/cefet-rj-dal/united/refs/heads/main/python/nab_realAdExchange.csv.gz"
+  },
+  "nab_realAWSCloudwatch": {
+    "kind": "frame_list",
+    "columns": ["idx", "value", "event", "type"],
+    "series_mini": "ec2_cpu_utilization_24ae8d",
+    "n_series_full": 6,
+    "full_rows": 24192,
+    "full_url": "https://raw.githubusercontent.com/cefet-rj-dal/united/refs/heads/main/python/nab_realAWSCloudwatch.csv.gz"
+  },
+  "nab_realKnownCause": {
+    "kind": "frame_list",
+    "columns": ["idx", "value", "event", "type"],
+    "series_mini": "ambient_temperature_system_failure",
+    "n_series_full": 7,
+    "full_rows": 69561,
+    "full_url": "https://raw.githubusercontent.com/cefet-rj-dal/united/refs/heads/main/python/nab_realKnownCause.csv.gz"
+  },
+  "nab_realTraffic": {
+    "kind": "frame_list",
+    "columns": ["idx", "value", "event", "type"],
+    "series_mini": "occupancy_6005",
+    "n_series_full": 7,
+    "full_rows": 15664,
+    "full_url": "https://raw.githubusercontent.com/cefet-rj-dal/united/refs/heads/main/python/nab_realTraffic.csv.gz"
+  },
+  "nab_realTweets": {
+    "kind": "frame_list",
+    "columns": ["idx", "value", "event", "type"],
+    "series_mini": "Twitter_volume_AAPL",
+    "n_series_full": 10,
+    "full_rows": 158631,
+    "full_url": "https://raw.githubusercontent.com/cefet-rj-dal/united/refs/heads/main/python/nab_realTweets.csv.gz"
+  },
+  "oil_3w_Type_1": {
+    "kind": "frame_list",
+    "columns": ["idx", "p_pdg", "p_tpt", "t_tpt", "p_mon_ckp", "t_jus_ckp", "p_jus_ckgl", "qgl", "event", "type"],
+    "series_mini": "WELL-00001_20140124213136",
+    "n_series_full": 5,
+    "full_rows": 118294,
+    "full_url": "https://raw.githubusercontent.com/cefet-rj-dal/united/refs/heads/main/python/oil_3w_Type_1.csv.gz"
+  },
+  "oil_3w_Type_2": {
+    "kind": "frame_list",
+    "columns": ["idx", "p_pdg", "p_tpt", "t_tpt", "p_mon_ckp", "t_jus_ckp", "p_jus_ckgl", "qgl", "event", "type"],
+    "series_mini": "WELL-00002_20131104014101",
+    "n_series_full": 6,
+    "full_rows": 42779,
+    "full_url": "https://raw.githubusercontent.com/cefet-rj-dal/united/refs/heads/main/python/oil_3w_Type_2.csv.gz"
+  },
+  "oil_3w_Type_4": {
+    "kind": "frame_list",
+    "columns": ["idx", "p_jus_ckgl", "p_mon_ckp", "p_pdg", "p_tpt", "qgl", "t_jus_ckp", "t_pdg", "t_tpt", "event", "type"],
+    "series_mini": "WELL-00001_20170316110203",
+    "n_series_full": 3,
+    "full_rows": 32197,
+    "full_url": "https://raw.githubusercontent.com/cefet-rj-dal/united/refs/heads/main/python/oil_3w_Type_4.csv.gz"
+  },
+  "oil_3w_Type_5": {
+    "kind": "frame_list",
+    "columns": ["idx", "p_pdg", "p_tpt", "t_tpt", "p_mon_ckp", "t_jus_ckp", "p_jus_ckgl", "qgl", "event", "type"],
+    "series_mini": "WELL-00015_20170620160349",
+    "n_series_full": 12,
+    "full_rows": 361998,
+    "full_url": "https://raw.githubusercontent.com/cefet-rj-dal/united/refs/heads/main/python/oil_3w_Type_5.csv.gz"
+  },
+  "oil_3w_Type_6": {
+    "kind": "frame_list",
+    "columns": ["idx", "P_PDG", "P_TPT", "T_TPT", "P_MON_CKP", "T_JUS_CKP", "P_JUS_CKGL", "QGL", "event", "type"],
+    "series_mini": "WELL-00002_20140212170333",
+    "n_series_full": 6,
+    "full_rows": 54212,
+    "full_url": "https://raw.githubusercontent.com/cefet-rj-dal/united/refs/heads/main/python/oil_3w_Type_6.csv.gz"
+  },
+  "oil_3w_Type_7": {
+    "kind": "frame_list",
+    "columns": ["idx", "P_PDG", "P_TPT", "T_TPT", "P_MON_CKP", "T_JUS_CKP", "P_JUS_CKGL", "QGL", "event", "type"],
+    "series_mini": "WELL-00001_20170226220309",
+    "n_series_full": 4,
+    "full_rows": 271708,
+    "full_url": "https://raw.githubusercontent.com/cefet-rj-dal/united/refs/heads/main/python/oil_3w_Type_7.csv.gz"
+  },
+  "oil_3w_Type_8": {
+    "kind": "frame_list",
+    "columns": ["idx", "p_pdg", "p_tpt", "t_tpt", "p_mon_ckp", "p_jus_ckgl", "qgl", "event", "type"],
+    "series_mini": "WELL-00019_20170301182317",
+    "n_series_full": 3,
+    "full_rows": 91091,
+    "full_url": "https://raw.githubusercontent.com/cefet-rj-dal/united/refs/heads/main/python/oil_3w_Type_8.csv.gz"
+  },
+  "ucr_ecg": {
+    "kind": "frame_list",
+    "columns": ["idx", "value", "event", "type"],
+    "series_mini": "011_ECG1",
+    "n_series_full": 10,
+    "full_rows": 657037,
+    "full_url": "https://raw.githubusercontent.com/cefet-rj-dal/united/refs/heads/main/python/ucr_ecg.csv.gz"
+  },
+  "ucr_int_bleeding": {
+    "kind": "frame_list",
+    "columns": ["idx", "value", "event", "type"],
+    "series_mini": "024_InternalBleeding10",
+    "n_series_full": 10,
+    "full_rows": 75363,
+    "full_url": "https://raw.githubusercontent.com/cefet-rj-dal/united/refs/heads/main/python/ucr_int_bleeding.csv.gz"
+  },
+  "ucr_nasa": {
+    "kind": "frame_list",
+    "columns": ["idx", "value", "event", "type"],
+    "series_mini": "048_TkeepFifthMARS",
+    "n_series_full": 11,
+    "full_rows": 124796,
+    "full_url": "https://raw.githubusercontent.com/cefet-rj-dal/united/refs/heads/main/python/ucr_nasa.csv.gz"
+  },
+  "ucr_power_demand": {
+    "kind": "frame_list",
+    "columns": ["idx", "value", "event", "type"],
+    "series_mini": "044_PowerDemand1",
+    "n_series_full": 11,
+    "full_rows": 508778,
+    "full_url": "https://raw.githubusercontent.com/cefet-rj-dal/united/refs/heads/main/python/ucr_power_demand.csv.gz"
+  }
+}

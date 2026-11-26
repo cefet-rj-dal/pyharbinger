@@ -235,18 +235,35 @@ zero_lag 1.0), hard (TP2/FP1/FN1, acc 0.9, F1 0.6667), threshold detection (sum 
 limpo, notebook `online/03-streaming-eval` compila, build+twine PASS. Versões 0.9.0→0.10.0. R backport NÃO
 necessário (port fiel). **Falta do item 3:** só 3c (`united`+`loadfulldata`+datasets de benchmark) p/ fechar o Ciclo 1.
 
+## M20 — datasets de benchmark (item-3c-i do Ciclo 1) (0.11.0, 2026-11-26, branch `milestone-benchmark-data`)
+Mecanismo Eidolon (espelha pytspredit/tspredit/tspredbench). Exportador **`united/etl/py_export.R`** (no
+repo `C:\Git\dal\united`): lê os `.RData` (mini em `data/`, full em `harbinger/`), achata cada lista-de-frames
+em CSV tidy (`series` + colunas do frame, união de colunas p/ séries heterogêneas), escreve (a) **miniaturas
+Python** (CSV, 1ª série × 30 linhas) em `pyharbinger/src/pyharbinger/data/united/<nome>.csv`, (b) **full
+`.csv.gz`** em `united/python/<nome>.csv.gz` (hospedado p/ raw.githubusercontent), (c) `manifest.json`
+{kind, columns, series_mini, n_series_full, full_rows, full_url}. **26 datasets** (Yahoo A1–A4, gecco,
+MIT-BIH×4, NAB×6, oil_3w×7, UCR×4). pyharbinger `datasets`: `benchmark(nome)` (mini dict série→DataFrame),
+`list_benchmarks`, `benchmark_url`, **`loadfulldata(nome)`** (urllib+gzip, SEM dep nova; baixa o full do
+`united`) + **`examples_harbinger()`** (6 séries, CSV embarcado, colunas extra por série via `_load_collection`).
+**Paridade exata** (valores escritos pelo R): gecco full = 10 séries × 279132 linhas; mini event=bool.
+Tamanhos: maior gz 13MB (mit_bih), total `united/python/` 85MB; minis 117KB (embarcam no wheel). 255 testes
+(+13: test_benchmark.py, loadfulldata testado via `file://` gz, sem rede/sibling-repo), ruff limpo, notebook
+`datasets/02-benchmark` compila, build+twine PASS. Versões 0.10.0→0.11.0. **Falta só o item-3c-ii** (runner
+`united()`) p/ fechar o Ciclo 1.
+
 ---
 
 ## Estado atual (o resto está em `planejamento.md`)
-- **pyharbinger:** PyPI latest **0.9.0** (framework online, publicada); **0.10.0** (stream eval, item-3b) em
-  branch `milestone-stream-eval`, aguardando revisão. Depende de pydaltoolbox + pytspredit + matplotlib (PyPI).
+- **pyharbinger:** PyPI latest **0.10.0** (stream eval, publicada); **0.11.0** (benchmark datasets, item-3c-i)
+  em branch `milestone-benchmark-data`, aguardando revisão. Depende de pydaltoolbox + pytspredit + matplotlib (PyPI).
 - **Cobertura:** núcleo + avaliação + anomalias base + FFT-híbridos + change points (ruptures
   + nativos + os 3 ++ strucchange/forecast/ocp) + clustering + multivariado (HancMl/HmuPca) +
   ensemble (`HarEnsemble` majoritário + `HarEnsembleFuzzy`) + `HanrArima` (ARIMA++) + `HanrFftSma`
   + **simbólico (`TransSax`/`TransXsax`/`HmoSax`/`HmoXsax`/`HdisSax`)** + **plots (`har_plot`/
   `har_ensemble_plot`/`har_ensemble_plot_models`)** + **online (`HarOnlineSession` + fontes incl. Kafka/
-  memória/execução)** + **stream eval (`HarStreamEval`/`har_stream_experiment`)**. **Falta** (Ciclo 1):
-  só 3c (`united`/`loadfulldata`/datasets de benchmark). **Ciclo 2** (extras): motif-MP (`stumpy`), GARCH
+  memória/execução)** + **stream eval (`HarStreamEval`/`har_stream_experiment`)** + **datasets de benchmark
+  (`datasets.benchmark`/`loadfulldata` — 26 datasets Eidolon — + `examples_harbinger`)**. **Falta** (Ciclo 1):
+  só 3c-ii (runner `united()`). **Ciclo 2** (extras): motif-MP (`stumpy`), GARCH
   (`arch`), EMD (`EMD-signal`), wavelet (`PyWavelets`), DTW, deep/torch.
 - **R harbinger:** master em **2.2.717** (`hdis_sax`→discord; `har_source_kafka`→abstração sem-dep); largou
   `strucchange`, `ocp` **e `forecast`**; ainda importa `changepoint` e as libs do Ciclo 2 (`hht`, `wavelets`,
