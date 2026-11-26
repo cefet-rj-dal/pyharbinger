@@ -43,6 +43,7 @@ from .ensemble import HarEnsemble, HarEnsembleFuzzy
 from .evaluation import HarEval, HarEvalSoft
 from .harbinger import Harbinger
 from .multivariate import HmuPca
+from .plots import har_ensemble_plot, har_ensemble_plot_models, har_plot
 from .symbolic import HdisSax, HmoSax, HmoXsax, TransSax, TransXsax
 from .utils import (
     har_candidate_selection_firstgroup,
@@ -60,7 +61,7 @@ from .utils import (
     mas,
 )
 
-__version__ = "0.7.0"
+__version__ = "0.8.0"
 
 __all__ = [
     "HancMl",
@@ -106,12 +107,15 @@ __all__ = [
     "har_deviation_huber",
     "har_deviation_l1",
     "har_deviation_l2",
+    "har_ensemble_plot",
+    "har_ensemble_plot_models",
     "har_filter_boxplot",
     "har_filter_gaussian",
     "har_filter_grubbs",
     "har_filter_mad",
     "har_filter_none",
     "har_filter_ratio",
+    "har_plot",
     "mas",
     "utils",
 ]

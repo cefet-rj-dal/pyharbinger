@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "pyharbinger"
-version = "0.7.0"
+version = "0.8.0"
 description = "A unified time series event detection framework (Python port of the R harbinger framework)"
 readme = "README.md"
 requires-python = ">=3.9"
@@ -33,6 +33,7 @@ dependencies = [
   "scikit-learn>=1.2",
   "scipy>=1.9",
   "ruptures>=1.0",
+  "matplotlib>=3.5",
   "pydaltoolbox>=0.1.0",
   "pytspredit>=0.1.0",
 ]

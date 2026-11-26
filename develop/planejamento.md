@@ -30,9 +30,10 @@ multivariado + ensemble fuzzy + `HanrArima` (ARIMA++) + `HanrFftSma` + **simból
    exata R↔Python nas 3 séries). R `hdis_sax` rotulava o resultado como `type=="motif"`
    (lapso de copy-paste) → **corrigido para `"discord"` nos dois lados** (paridade é sobre o
    conjunto de índices, não sobre `type`). Commit do R pendente de versão Boeing (ver abaixo).
-2. 🚧 **Ensemble simples + visualização** — ✅ `HarEnsemble` (voto majoritário, feito na 0.7.0,
-   paridade exata; de quebra corrigiu um bug latente do `HanrHistogram` — bins right-closed). ⬜
-   **Falta:** `har_plot`/`har_plot_ensemble`/`har_ensemble_plot_models` (matplotlib, dep do núcleo).
+2. ✅ **Ensemble simples + visualização** — `HarEnsemble` (voto majoritário, 0.7.0, paridade exata;
+   corrigiu um bug latente do `HanrHistogram` — bins right-closed) + **plots** `har_plot`/
+   `har_ensemble_plot`/`har_ensemble_plot_models` (matplotlib, agora dep do núcleo; adaptado,
+   0.8.0). **Fecha o item 2.**
 3. ⬜ **Streaming / online + datasets (fecha o Ciclo 1)** — framework online (memory/sources/
    executor/session) + `har_stream_eval`/`har_stream_experiment` + `united`/`loadfulldata`.
    ⚠️ **`loadfulldata` NÃO é trivial** — replicar o mecanismo do pytspredit: **miniaturas

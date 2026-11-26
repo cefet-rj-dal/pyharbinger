@@ -185,18 +185,32 @@ parametrizados + 3 unit + 1 regressão histograma right-closed), ruff limpo, not
 `f2a9193c`, versão Boeing **2.2.707** — novo minor reinicia a sequência; push ao master bloqueado
 pelo harness, pendente do Eduardo).
 
+## M17 — plots `har_plot*` (matplotlib), fecha o item-2 do Ciclo 1 (0.8.0, 2026-11-26, branch `milestone-plots`)
+`src/pyharbinger/plots.py` — port adaptado dos helpers R (ggplot2/patchwork → **matplotlib**, agora
+dep do núcleo): **`har_plot`** (série + pontos coloridos por TP verde / FN azul / FP vermelho /
+segmento de motif roxo; change points como linhas verticais tracejadas; `yline` pontilhadas;
+`motifs_seqs` expandindo `seq`/`seqlen`), **`har_ensemble_plot`** (2 painéis: score de consenso +
+limiar, e eventos detectados) e **`har_ensemble_plot_models`** (série original + uma faixa por membro,
+via `model_events`). Sem gate numérico (helper visual) — testes são smoke (estrutura da figura:
+painéis, nº de linhas de CP, linhas yline, nº de faixas por membro, cores). `matplotlib>=3.5` entra
+em `dependencies` do `pyproject`. 210 testes (+8 test_plots.py, backend Agg), ruff limpo, notebook
+`plots/01-plots` compila, build+twine PASS. Versões 0.7.0→0.8.0. **Fecha o item-2 do Ciclo 1**
+(ensemble + visualização). **Falta do Ciclo 1:** só o item-3 (streaming/online + datasets de
+benchmark/`loadfulldata`).
+
 ---
 
 ## Estado atual (o resto está em `planejamento.md`)
-- **pyharbinger:** PyPI latest **0.6.0** (simbólico SAX/XSAX, publicada); **0.7.0** (`HarEnsemble` +
-  fix HanrHistogram) em branch `milestone-ensemble`, aguardando revisão. Depende de pydaltoolbox +
-  pytspredit (PyPI).
+- **pyharbinger:** PyPI latest **0.7.0** (`HarEnsemble` + fix HanrHistogram, publicada); **0.8.0**
+  (plots `har_plot*`) em branch `milestone-plots`, aguardando revisão. Depende de pydaltoolbox +
+  pytspredit + **matplotlib** (PyPI).
 - **Cobertura:** núcleo + avaliação + anomalias base + FFT-híbridos + change points (ruptures
   + nativos + os 3 ++ strucchange/forecast/ocp) + clustering + multivariado (HancMl/HmuPca) +
   ensemble (`HarEnsemble` majoritário + `HarEnsembleFuzzy`) + `HanrArima` (ARIMA++) + `HanrFftSma`
-  + **simbólico (`TransSax`/`TransXsax`/`HmoSax`/`HmoXsax`/`HdisSax`)**. **Falta** (Ciclo 1): plots
-  (`har_plot*`), streaming/online + datasets de benchmark/`loadfulldata`. **Ciclo 2** (extras):
-  motif-MP (`stumpy`), GARCH (`arch`), EMD (`EMD-signal`), wavelet (`PyWavelets`), DTW, deep/torch.
+  + **simbólico (`TransSax`/`TransXsax`/`HmoSax`/`HmoXsax`/`HdisSax`)** + **plots (`har_plot`/
+  `har_ensemble_plot`/`har_ensemble_plot_models`)**. **Falta** (Ciclo 1): só streaming/online +
+  datasets de benchmark/`loadfulldata`. **Ciclo 2** (extras): motif-MP (`stumpy`), GARCH (`arch`),
+  EMD (`EMD-signal`), wavelet (`PyWavelets`), DTW, deep/torch.
 - **R harbinger:** master em **2.1.787**; largou `strucchange`, `ocp` **e `forecast`**; ainda
   importa `changepoint` e as libs do Ciclo 2 (`hht`, `wavelets`, `rugarch`, `tsmp`, `dtwclust`).
   CRAN/commits do R = Eduardo.

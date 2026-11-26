@@ -165,6 +165,7 @@ fixed on both sides).
 | `har_ensemble` → `HarEnsemble` | detected set | **exact** | majority vote (`res > m/2`); matches R on `examples_anomalies` when members match R (fft/fbiad/hist) |
 | `har_ensemble_fuzzy` → `HarEnsembleFuzzy` | consensus set | **adapted** | fuzzy consensus + absolute floor (0.4.7) |
 | `hanr_hist` → `HanrHistogram` | detected set | **exact** | 🐞 right-closed bins (R `hist` `right=TRUE`): values on a break counted in the lower bin — fixed in 0.7.0 → exact on all 10 `examples_anomalies` (was only validated on `simple`) |
+| `har_plot`/`har_plot_ensemble` → `har_plot`/`har_ensemble_plot`/`har_ensemble_plot_models` | figure structure | **adapted** | matplotlib instead of ggplot2/patchwork; same marks/colours (TP/FN/FP/motif, CP lines, ensemble score + per-model votes); smoke-tested, no numeric gate (0.8.0) |
 | `trans_sax`/`trans_xsax` → `TransSax`/`TransXsax` | symbolic codes | **exact** | identical SAX/XSAX words on `simple` (z-norm + type-7 quantile + `cut` include.lowest + base-26/36 padded codes) |
 | `hmo_sax`/`hmo_xsax`/`hdis_sax` → `HmoSax`/`HmoXsax`/`HdisSax` | detected set | **exact** | identical detected-idx sets on all 3 `examples_motifs` series (simple + mitdb100/102). 🐞 R `hdis_sax` tags `type=="motif"` (copy-paste slip); port uses `type=="discord"` (parity is on the idx set) |
 
