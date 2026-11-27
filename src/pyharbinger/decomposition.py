@@ -6,17 +6,23 @@ and empirical-mode decompositions already implemented in ``pytspredit`` -- so no
 heavy third-party dependency is pulled in (mirrors how :class:`HanrArima`
 reuses ``pytspredit.fit_arima``).
 
-Currently provides :class:`HanrWavelet`; the EMD family follows.
+Provides :class:`HanrWavelet` (MODWT), :class:`HanrEmd` and :class:`HanrRtad`
+(empirical mode decomposition). The EMD detectors reuse the native deterministic
+EMD (``pytspredit.emd.emd``), which the R package was back-ported to use as well
+(dropping ``hht`` for these detectors), so the decomposition is identical and
+the detected index sets match R exactly.
 
 References
 ----------
 - Mallat S (1989). A theory for multiresolution signal decomposition: the
   wavelet representation. IEEE TPAMI 11(7):674-693.
+- Huang NE et al. (1998). The empirical mode decomposition and the Hilbert
+  spectrum for nonlinear and non-stationary time series analysis. Proc. R. Soc. A.
 
 Porting
 -------
-Mirrors ``hanr_wavelet.R``. Fidelity: exact (``pytspredit.wavelet.modwt``
-reproduces R ``wavelets::modwt``; identical detected sets on
+Mirrors ``hanr_wavelet.R`` / ``hanr_emd.R`` / ``hanr_rtad.R``. Fidelity: exact
+(native MODWT/EMD reproduced across R and Python; identical detected sets on
 ``examples_anomalies``).
 """
 from __future__ import annotations
@@ -24,11 +30,33 @@ from __future__ import annotations
 import math
 
 import numpy as np
+from pydaltoolbox import FitCurvatureMax
+from pytspredit import emd as _emd
 from pytspredit import wavelet as _wavelet
 
 from .harbinger import Harbinger
+from .utils import har_candidate_selection_highgroup
 
-__all__ = ["HanrWavelet"]
+__all__ = ["HanrEmd", "HanrRtad", "HanrWavelet"]
+
+
+def _imf_roughness(x: np.ndarray) -> float:
+    """Mean squared curvature of the normalized first difference (R ``fc_rug``)."""
+    fd = np.diff(x)
+    sd = np.std(fd, ddof=1)
+    nfd = (fd - fd.mean()) / sd
+    return float(np.mean((np.diff(nfd) ** 2) / 4))
+
+
+def _rolling_sd(x: np.ndarray, window: int) -> np.ndarray:
+    """Centered partial rolling sample sd (mirrors R ``zoo::rollapply(..., partial=TRUE)``)."""
+    n = len(x)
+    lo, hi = (window - 1) // 2, window // 2
+    out = np.empty(n)
+    for i in range(n):
+        seg = x[max(0, i - lo):min(n, i + hi + 1)]
+        out[i] = np.std(seg, ddof=1) if len(seg) > 1 else 0.0
+    return out
 
 
 class HanrWavelet(Harbinger):
