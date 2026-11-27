@@ -24,7 +24,7 @@ multivariado + ensemble fuzzy + `HanrArima` (ARIMA++) + `HanrFftSma` + **simból
 > **0.6.0 simbólico PUBLICADA** (PyPI, mesclada em `main` HEAD `47c01a2`). Detalhes em
 > `historico.md`.
 
-### Ciclo 1 — baixa dependência (fechar a cobertura, núcleo enxuto)
+### Ciclo 1 — baixa dependência (fechar a cobertura, núcleo enxuto) — ✅ FECHADO (0.11.0, 2026-11-26)
 1. ✅ **Simbólico (motif/discord nativo)** — `TransSax`/`TransXsax`, `HmoSax`/`HmoXsax`/
    `HdisSax` (SAX/xSAX, nativo). Embarca `examples_motifs`. **Feito na 0.6.0** (paridade
    exata R↔Python nas 3 séries). R `hdis_sax` rotulava o resultado como `type=="motif"`
@@ -45,20 +45,27 @@ multivariado + ensemble fuzzy + `HanrArima` (ARIMA++) + `HanrFftSma` + **simból
        (CSV + `manifest.json`) p/ o pyharbinger + full `.csv.gz` commitados no repo `united`
        (URLs raw). `datasets.benchmark`/`list_benchmarks`/`benchmark_url`/`loadfulldata`
        (urllib+gzip, sem dep nova) + `examples_harbinger`. 26 datasets, paridade exata.
-     - **3c-ii ⬜ runner `united()`** — portar `harbinger/R/united.R` (606 linhas) → fecha o Ciclo 1.
+     - **3c-ii — N/A (não existe runner a portar).** Correção: `harbinger/R/united.R` (606 linhas) é
+       **só documentação dos datasets** (stubs roxygen `@name`), NÃO um runner; a única função,
+       `loadfulldata`, já foi portada no 3c-i (`datasets.loadfulldata`). O "experimento united" é apenas
+       o padrão de uso (carregar datasets + rodar detectores/`har_stream_experiment`), já suportado.
+       **→ Ciclo 1 FECHADO na 0.11.0.**
 
-### Ciclo 2 — dependências pesadas (extras opcionais) — *a refinar com o Eduardo*
-Uma família de dep por release; import preguiçoso + erro acionável nomeando o extra. Para cada
-uma, decidir **embrulhar vs. back-implementar ++** pelo gate (nicho/atrito/paridade):
+### Ciclo 2 — **EMD e Wavelet PRIMEIRO, nativos via pytspredit** (decisão Eduardo, 2026-11-26)
+EMD/wavelet já são nativos no tspredit/pytspredit (sem libs externas) → **reuso do pytspredit, SEM
+dep pesada** (não entram `[emd]`/`[wavelet]`). Deep = **só stub** (o real vem de daltoolboxdp/
+pydaltoolboxdp depois, quando o harbinger fechar). Demais famílias a refinar.
+7. ✅ **Wavelet (0.12.0)** — `HanrWavelet` reusa `pytspredit.wavelet.modwt` (MODWT nativo). Paridade
+   EXATA nas 10 séries (pytspredit modwt == R `wavelets::modwt`). Sem dep nova, sem backport R.
+6. 🚧 **EMD** — `HanrEmd`/`HanrRemd`/`HanrRtad` reusando `pytspredit.emd` (`eemd`=CEEMD nativo) +
+   `pydaltoolbox.FitCurvatureMin/Max` + `pytspredit.ts_arima`. ⚠️ R usa `hht::CEEMD` (backend
+   diferente) → decidir faithful-via-backport-R (trocar hht por emd nativo no R, dropar `hht`) vs ++
+   (gate SoftED-F1). Próximo marco.
 4. ⬜ **Motif/discord por matrix profile** — `HmoMp`/`HdisMp`, extra `[motif]` (`stumpy`).
 5. ⬜ **GARCH** — `HanrGarch`/`HcpGarch`, extra `[garch]` (`arch`).
-6. ⬜ **EMD** — `HanrEmd`/`HanrRemd`/`HanrRtad`, extra `[emd]` (`EMD-signal`). *(Candidato a
-   back-impl nativo 0-dep, como no pytspredit.)*
-7. ⬜ **Wavelet** — `HanrWavelet`, extra `[wavelet]` (`PyWavelets`). *(Idem — MODWT nativo já
-   existe no pytspredit; avaliar reuso.)*
 8. ⬜ **DTW** — `HanctDtw`, extra `[dtw]` (`dtaidistance`/`tslearn`).
-9. ⬜ **Deep learning** — `HanAutoencoder`/`HcpWaypoint`, extra `[deep]` (`torch`). *(O
-   `AutoencBaseEd` do pydaltoolbox é stub identidade — precisa de torch de verdade.)*
+9. ⬜ **Deep learning (STUB só)** — `HanAutoencoder`/`HcpWaypoint` como **stub** (o real será herdado/
+   ajustado em daltoolboxdp/pydaltoolboxdp quando fecharmos o harbinger; não mexer agora).
 
 ### Fechamento
 10. ⬜ **Maturidade (espelhar pydaltoolbox/pytspredit)** — promover as checagens asseridas para

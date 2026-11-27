@@ -57,7 +57,7 @@ Every detector extends `Harbinger` and returns a detection table with columns
 |---|---|
 | **Core** | `Harbinger` (base contract), deviation / filter / candidate-selection utilities |
 | **Evaluation** | `HarEval` (hard), `HarEvalSoft` (SoftED, soft matching via the Hungarian algorithm) |
-| **Anomaly** | `HanrMl` (forecasting residuals, wraps a pytspredit regressor), `HanrArima` (ARIMA residuals, reuses the DAL ARIMA), `HanrFft`, `HanrFftAmoc`, `HanrFftBinseg`, `HanrFftAmocCusum`, `HanrFftBinsegCusum`, `HanrFftSma` (adaptive FFT-selected moving average), `HanrHistogram`, `HanrFbiad` |
+| **Anomaly** | `HanrMl` (forecasting residuals, wraps a pytspredit regressor), `HanrArima` (ARIMA residuals, reuses the DAL ARIMA), `HanrFft`, `HanrFftAmoc`, `HanrFftBinseg`, `HanrFftAmocCusum`, `HanrFftBinsegCusum`, `HanrFftSma` (adaptive FFT-selected moving average), `HanrHistogram`, `HanrFbiad`, `HanrWavelet` (native MODWT, reuses pytspredit) |
 | **Change point** | `HcpAmoc`, `HcpBinseg`, `HcpPelt` (via `ruptures`), `HcpKswin`, `HcpPageHinkley`, `HcpCfLr`, `HcpScp`, `HcpJoinpoint`, `HcpChow`, `HcpGft` (native structural change), `HcpCfArima`, `HcpCfEts` (ChangeFinder, native forecast replacement), `HcpBocpd` (Bayesian online, "++" ocp re-engineering) |
 | **Clustering** | `HanctKmeans` (anomalies / discords) |
 | **Classification** | `HancMl` (supervised; wraps a pydaltoolbox classifier) |

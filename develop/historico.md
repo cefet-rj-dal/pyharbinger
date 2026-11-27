@@ -251,20 +251,34 @@ Tamanhos: maior gz 13MB (mit_bih), total `united/python/` 85MB; minis 117KB (emb
 `datasets/02-benchmark` compila, build+twine PASS. Versões 0.10.0→0.11.0. **Falta só o item-3c-ii** (runner
 `united()`) p/ fechar o Ciclo 1.
 
+## M21 — Ciclo 2 início: HanrWavelet (MODWT nativo via pytspredit) (0.12.0, 2026-11-26, branch `milestone-wavelet`)
+Abre o Ciclo 2. **Decisão do Eduardo:** EMD e Wavelet PRIMEIRO, **nativos reusando o pytspredit** (já
+implementados lá sem libs externas) → **sem deps pesadas** (`EMD-signal`/`PyWavelets` não entram); deep =
+só stub depois. `src/pyharbinger/decomposition.py`: **`HanrWavelet`** = port fiel de `hanr_wavelet.R`,
+reusa `pytspredit.wavelet.modwt` (MODWT nativo) em vez de R `wavelets`; soma as bandas de detalhe →
+pipeline har padrão (L2/gaussian/firstgroup); `n_levels` default `floor(log2(n))` (= R). **Paridade EXATA
+nas 10 séries `examples_anomalies`** (pytspredit modwt reproduz `wavelets::modwt`). Filtros haar/d4/la8/
+bl14/c6. Sem dep nova, **sem backport R necessário** (R já é faithful). 272 testes (+13 test_decomposition.py),
+ruff limpo, notebook `anomaly/02-wavelet` compila, build+twine PASS. Versões 0.11.0→0.12.0. **NEXT:** EMD
+family (`HanrEmd`/`HanrRemd`/`HanrRtad`) reusando `pytspredit.emd` (eemd) — R usa hht::CEEMD (backend
+diferente) → decidir faithful-via-backport (dropar hht no R) vs ++.
+
 ---
 
 ## Estado atual (o resto está em `planejamento.md`)
-- **pyharbinger:** PyPI latest **0.10.0** (stream eval, publicada); **0.11.0** (benchmark datasets, item-3c-i)
-  em branch `milestone-benchmark-data`, aguardando revisão. Depende de pydaltoolbox + pytspredit + matplotlib (PyPI).
+- **pyharbinger:** PyPI latest **0.11.0** (benchmark datasets, publicada); **0.12.0** (HanrWavelet, Ciclo 2)
+  em branch `milestone-wavelet`, aguardando revisão. Depende de pydaltoolbox + pytspredit + matplotlib (PyPI).
 - **Cobertura:** núcleo + avaliação + anomalias base + FFT-híbridos + change points (ruptures
   + nativos + os 3 ++ strucchange/forecast/ocp) + clustering + multivariado (HancMl/HmuPca) +
   ensemble (`HarEnsemble` majoritário + `HarEnsembleFuzzy`) + `HanrArima` (ARIMA++) + `HanrFftSma`
   + **simbólico (`TransSax`/`TransXsax`/`HmoSax`/`HmoXsax`/`HdisSax`)** + **plots (`har_plot`/
   `har_ensemble_plot`/`har_ensemble_plot_models`)** + **online (`HarOnlineSession` + fontes incl. Kafka/
   memória/execução)** + **stream eval (`HarStreamEval`/`har_stream_experiment`)** + **datasets de benchmark
-  (`datasets.benchmark`/`loadfulldata` — 26 datasets Eidolon — + `examples_harbinger`)**. **Falta** (Ciclo 1):
-  só 3c-ii (runner `united()`). **Ciclo 2** (extras): motif-MP (`stumpy`), GARCH
-  (`arch`), EMD (`EMD-signal`), wavelet (`PyWavelets`), DTW, deep/torch.
+  (`datasets.benchmark`/`loadfulldata` — 26 datasets Eidolon — + `examples_harbinger`)**. **Ciclo 1
+  FECHADO** (0.11.0): não há runner `united()` a portar (o `united.R` do R é só doc de datasets; a única
+  função, `loadfulldata`, já foi portada). **Ciclo 2 iniciado:** ✅ `HanrWavelet` (0.12.0, MODWT nativo
+  via pytspredit). **Próximos:** EMD (nativo via pytspredit), matrix-profile (`stumpy`), GARCH (`arch`),
+  DTW, deep (só stub).
 - **R harbinger:** master em **2.2.717** (`hdis_sax`→discord; `har_source_kafka`→abstração sem-dep); largou
   `strucchange`, `ocp` **e `forecast`**; ainda importa `changepoint` e as libs do Ciclo 2 (`hht`, `wavelets`,
   `rugarch`, `tsmp`, `dtwclust`). CRAN/commits do R = Eduardo.

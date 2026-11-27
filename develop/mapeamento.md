@@ -41,7 +41,7 @@ detecção = DataFrame `[idx, event, type, (seq, seqlen)]`.
 | `hanr_arima.R` | `HanrArima` | **ARIMA++** reusa `pytspredit.fit_arima` (substituto DAL do auto.arima) + resíduos in-sample → derruba `forecast` do R | ✅ ➕ |
 | `hanr_garch.R` | `HanrGarch` | `arch` (sGARCH+ARMA) | 🧩 `[garch]` |
 | `hanr_emd.R` / `hanr_remd.R` / `hanr_rtad.R` | `HanrEmd` / `HanrRemd` / `HanrRtad` | EMD (`hht` no R) | 🧩 `[emd]` |
-| `hanr_wavelet.R` | `HanrWavelet` | wavelet (`wavelets` no R) | 🧩 `[wavelet]` |
+| `hanr_wavelet.R` | `HanrWavelet` | MODWT nativo via `pytspredit.wavelet` (sem dep externa) | ✅ (paridade exata nas 10 séries) |
 | `han_autoencoder.R` | `HanAutoencoder` | autoencoder real (torch — `AutoencBaseEd` do pydaltoolbox é STUB identidade) | 🧩 `[deep]` |
 
 ## Change point (`hcp_*`)
@@ -86,7 +86,7 @@ detecção = DataFrame `[idx, event, type, (seq, seqlen)]`.
 | `har_online_sources.R` (`har_source_callback/dataframe/kafka/simulated`, `source_info`, `ingest`, `next_observation`, `is_finished`) | `HarSourceSimulated`/`HarSourceDataframe`/`HarSourceCallback`/`HarSourceKafka` + `HarStreamCollector`/`HarSimulatedCollector` (`.next_observation`/`.info`) | ✅ (Kafka = abstração SEM dep: delega a um collector `get_next()`; usuário pluga Kafka real via subclasse) |
 | `har_online_executor.R` / `har_online_session.R` (`har_online_detect_only/incremental/refit_full`, `run_online`, `step_online`, `har_online_session`) | `HarOnlineRefitFull`/`HarOnlineDetectOnly`/`HarOnlineIncremental` + `HarOnlineSession` (`.fit`/`.ingest`/`.step`/`.run`/`.is_finished`/`.collect_*`) | ✅ (paridade exata: eventos+DP+DL) |
 | `har_stream_eval.R` / `har_stream_experiment.R` (`collect_batch_log/detection/trace`) | `HarStreamEval` + `har_stream_experiment` | ✅ (paridade exata: summary DP/DL + hard metrics + grid) |
-| `united.R` / `united_loadfulldata.R` (`united`, `loadfulldata`) | experimento "united" + datasets completos | ⬜ (replicar o `loadfulldata` do pytspredit — ver planejamento.md) |
+| `united.R` (docs dos datasets) / `united_loadfulldata.R` (`loadfulldata`) | `datasets.benchmark`/`list_benchmarks`/`benchmark_url` + `datasets.loadfulldata` | ✅ (não há função `united()` — `united.R` é só doc; `loadfulldata` portado) |
 
 ## Datasets
 | R | Python | Status |
