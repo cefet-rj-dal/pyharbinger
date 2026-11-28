@@ -42,7 +42,7 @@ detecção = DataFrame `[idx, event, type, (seq, seqlen)]`.
 | `hanr_garch.R` | `HanrGarch` | `arch` (sGARCH+ARMA) | 🧩 `[garch]` |
 | `hanr_emd.R` / `hanr_remd.R` / `hanr_rtad.R` | `HanrEmd` / `HanrRemd` / `HanrRtad` | EMD (`hht` no R) | 🧩 `[emd]` |
 | `hanr_wavelet.R` | `HanrWavelet` | MODWT nativo via `pytspredit.wavelet` (sem dep externa) | ✅ (paridade exata nas 10 séries) |
-| `han_autoencoder.R` | `HanAutoencoder` | autoencoder real (torch — `AutoencBaseEd` do pydaltoolbox é STUB identidade) | 🧩 `[deep]` |
+| `han_autoencoder.R` | `pydaltoolboxdp.HanAutoencoder` | autoencoder real (torch), especializa `pyharbinger.Harbinger` | ✅ externo (pydaltoolboxdp 0.6.0 local) |
 
 ## Change point (`hcp_*`)
 | R | Python | Backend | Status |
@@ -55,7 +55,7 @@ detecção = DataFrame `[idx, event, type, (seq, seqlen)]`.
 | `hcp_cf_arima.R` / `hcp_cf_ets.R` | `HcpCfArima` / `HcpCfEts` | **forecast++** nativo (ChangeFinder robusto SDAR + mean+var) | ✅ ➕ |
 | `hcp_bocpd.R` (+`bocpd_ar.R`) | `HcpBocpd` | **ocp++** nativo (BOCPD com UPM autorregressivo) | ✅ ➕ |
 | `hcp_garch.R` | `HcpGarch` | `arch` + OLS 1º estágio | 🧩 `[garch]` |
-| `hcp_waypoint.R` | `HcpWaypoint` | autoencoder real (torch) | 🧩 `[deep]` |
+| `hcp_waypoint.R` | `pydaltoolboxdp.HcpWaypoint` | autoencoder real (torch), especializa `pyharbinger.Harbinger` | ✅ externo (pydaltoolboxdp 0.6.0 local) |
 
 ## Clustering / classificação / multivariado
 | R | Python | Backend | Status |

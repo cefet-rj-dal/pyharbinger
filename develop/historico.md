@@ -265,6 +265,15 @@ diferente) → decidir faithful-via-backport (dropar hht no R) vs ++.
 
 ---
 
+## Deep ++ externo — pydaltoolboxdp 0.6.0 local (2026-11-28)
+
+`HanAutoencoder` e `HcpWaypoint` foram implementados no pacote de extensão
+`pydaltoolboxdp`, ambos especializando diretamente `pyharbinger.Harbinger`. A decisão mantém
+torch fora do núcleo pyharbinger e evita stubs públicos ou implementações duplicadas.
+O gate contra o R harbinger foi exato a `1e-7` para resíduos, eventos e `tau`; os 12 exemplos
+concretos Deep ++ foram transferidos do harbinger para daltoolboxdp e ganharam pares Python.
+Não houve alteração de código ou dependência no pyharbinger.
+
 ## Estado atual (o resto está em `planejamento.md`)
 - **pyharbinger:** PyPI latest **0.11.0** (benchmark datasets, publicada); **0.12.0** (HanrWavelet, Ciclo 2)
   em branch `milestone-wavelet`, aguardando revisão. Depende de pydaltoolbox + pytspredit + matplotlib (PyPI).

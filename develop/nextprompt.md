@@ -3,6 +3,13 @@ memória do projeto (pyharbinger-port, back-implementation-initiative, boeing-ve
 verify-dependency-backends — se existirem nesta máquina) e, no develop/: planejamento.md (só o
 que falta), historico.md (a história), mapeamento.md (R↔Python), parity.md (metodologia + matriz).
 
+ATUALIZAÇÃO PRIORITÁRIA (2026-11-28): o estado detalhado abaixo é histórico. O `main` atual
+está em 0.12.0. O item Deep foi concluído externamente no pydaltoolboxdp 0.6.0 local:
+`HanAutoencoder` e `HcpWaypoint` especializam `pyharbinger.Harbinger`, sem adicionar torch ou
+stubs a este pacote. A paridade R↔Python foi exata a `1e-7`; os 12 exemplos concretos foram
+transferidos de harbinger para daltoolboxdp. Próximo trabalho próprio continua sendo EMD,
+conforme `planejamento.md`.
+
 PRINCÍPIOS (confirme em poucas linhas e siga)
 - Python = releitura canônica / R = backport; **incrementar métodos ++ + reduzir dependência**
   em todo o stack DAL. **Não é regra cega** — caso a caso com o Eduardo; libs canônicas

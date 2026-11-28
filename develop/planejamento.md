@@ -53,8 +53,9 @@ multivariado + ensemble fuzzy + `HanrArima` (ARIMA++) + `HanrFftSma` + **simból
 
 ### Ciclo 2 — **EMD e Wavelet PRIMEIRO, nativos via pytspredit** (decisão Eduardo, 2026-11-26)
 EMD/wavelet já são nativos no tspredit/pytspredit (sem libs externas) → **reuso do pytspredit, SEM
-dep pesada** (não entram `[emd]`/`[wavelet]`). Deep = **só stub** (o real vem de daltoolboxdp/
-pydaltoolboxdp depois, quando o harbinger fechar). Demais famílias a refinar.
+dep pesada** (não entram `[emd]`/`[wavelet]`). Deep foi concluído externamente em
+`pydaltoolboxdp` 0.6.0 local, especializando diretamente `Harbinger`; pyharbinger permanece
+sem torch e sem duplicar esses modelos. Demais famílias a refinar.
 7. ✅ **Wavelet (0.12.0)** — `HanrWavelet` reusa `pytspredit.wavelet.modwt` (MODWT nativo). Paridade
    EXATA nas 10 séries (pytspredit modwt == R `wavelets::modwt`). Sem dep nova, sem backport R.
 6. 🚧 **EMD** — `HanrEmd`/`HanrRemd`/`HanrRtad` reusando `pytspredit.emd` (`eemd`=CEEMD nativo) +
@@ -64,9 +65,6 @@ pydaltoolboxdp depois, quando o harbinger fechar). Demais famílias a refinar.
 4. ⬜ **Motif/discord por matrix profile** — `HmoMp`/`HdisMp`, extra `[motif]` (`stumpy`).
 5. ⬜ **GARCH** — `HanrGarch`/`HcpGarch`, extra `[garch]` (`arch`).
 8. ⬜ **DTW** — `HanctDtw`, extra `[dtw]` (`dtaidistance`/`tslearn`).
-9. ⬜ **Deep learning (STUB só)** — `HanAutoencoder`/`HcpWaypoint` como **stub** (o real será herdado/
-   ajustado em daltoolboxdp/pydaltoolboxdp quando fecharmos o harbinger; não mexer agora).
-
 ### Fechamento
 10. ⬜ **Maturidade (espelhar pydaltoolbox/pytspredit)** — promover as checagens asseridas para
     `develop/parity/<fam>.R` + `tests/test_quality_*` (R-free); auditoria de crédito Py+R

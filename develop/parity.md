@@ -173,6 +173,7 @@ fixed on both sides).
 | `hanr_wavelet` → `HanrWavelet` | detected set | **exact** | 0.12.0 (Cycle 2); reuses `pytspredit.wavelet.modwt` (native MODWT) instead of R `wavelets` — matches R on all 10 `examples_anomalies` (n_levels = floor(log2(n))). No external wavelet dependency |
 | `trans_sax`/`trans_xsax` → `TransSax`/`TransXsax` | symbolic codes | **exact** | identical SAX/XSAX words on `simple` (z-norm + type-7 quantile + `cut` include.lowest + base-26/36 padded codes) |
 | `hmo_sax`/`hmo_xsax`/`hdis_sax` → `HmoSax`/`HmoXsax`/`HdisSax` | detected set | **exact** | identical detected-idx sets on all 3 `examples_motifs` series (simple + mitdb100/102). 🐞 R `hdis_sax` tags `type=="motif"` (copy-paste slip); port uses `type=="discord"` (parity is on the idx set) |
+| `han_autoencoder`/`hcp_waypoint` → `pydaltoolboxdp.HanAutoencoder/HcpWaypoint` | residuals + events + tau | **exact (external Deep ++)** | pydaltoolboxdp 0.6.0 local; same PyTorch backends, max residual differences `2.7e-15`/`1.5e-14`, identical event set and Waypoint tau |
 
 ---
 
